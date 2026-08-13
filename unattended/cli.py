@@ -111,6 +111,40 @@ def _confirm_resume(cfg: Config) -> bool:
     return ans in ("", "y", "yes")
 
 
+EXPAND_PROMPT = (
+    "项目：{project}\n"
+    "用户为本项目定义了以下最终目标（简短描述）：\n"
+    "--- 用户目标 ---\n{goal}\n--- 用户目标结束 ---\n"
+    "请基于此目标在项目根目录完成初始化规划：\n"
+    "1) 创建 FinalGoal.md：把目标扩写为完整规划（最终目标、硬门槛/交付物、验收标准、里程碑），"
+    "定位为本仓库的最高级规划。\n"
+    "2) 创建 TODO.md：根据 FinalGoal 列出当前最优先的 3~5 个具体可执行任务（`- [ ]` 格式）。\n"
+    "3) 完成后回复：已完成规划。\n"
+    "若文件已存在则更新而不是覆盖。"
+)
+
+
+def _ask_expand() -> bool:
+    """询问是否自动扩写（默认是）。"""
+    try:
+        ans = input(ui.paint("需要自动扩写为完整 FinalGoal + 初始 TODO？[Y/n] ", ui.C.CYAN)).strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        return True
+    return ans in ("", "y", "yes")
+
+
+def _expand_goal(cfg: Config, goal: str) -> bool:
+    """把用户目标发给 Cursor（含我们定义的上下文），扩写生成 FinalGoal.md + TODO.md。"""
+    print(ui.dim("  正在让 Cursor 扩写目标并生成规划（首次会启动/附加 Cursor）..."))
+    state = RunState.load(cfg.snapshot_file, cfg.event_log_file, cfg.todo_file)
+    ok = loop._send_and_wait(
+        cfg, state,
+        EXPAND_PROMPT.format(project=cfg.project_dir, goal=goal),
+        "expand_goal",
+    )
+    return ok
+
+
 def cmd_run(args) -> int:
     ui.init()
     cfg = _cfg(Path(args.project), args.mode)
@@ -120,7 +154,7 @@ def cmd_run(args) -> int:
 
     prof = _project_profile(cfg.project_dir)
 
-    # 场景 A：全新项目 —— 引导输入最终目标 → 创建 FinalGoal.md
+    # 场景 A：全新项目 —— 引导输入最终目标 → 询问扩写 → 创建 FinalGoal/TODO
     if not prof["has_goal"] and not prof["has_todo"]:
         if args.yes:
             print(ui.warn("[warn] 新项目但 --yes：跳过初始化，将无规划直接结束（先 curloop init）"))
@@ -128,9 +162,28 @@ def cmd_run(args) -> int:
             goal = _ask_goal(cfg.project_dir)
             if goal is None:
                 return 1
-            p = _write_final_goal(cfg.project_dir, goal)
-            print(f"{ui.ok('[ok] 已创建 FinalGoal.md')} → {p}")
-            print(ui.dim("      首次运行将读取它生成初始 TODO.md"))
+            want_expand = False
+            if args.mode == "dry-run":
+                want_expand = not args.no_expand  # 预览将采用哪种模式
+                print(ui.dim(f"  (dry-run：将按{'扩写模式' if want_expand else '直接模式'}处理，不会发送扩写 prompt)"))
+            elif args.no_expand:
+                want_expand = False
+            else:
+                want_expand = _ask_expand()
+
+            if args.mode == "dry-run":
+                _write_final_goal(cfg.project_dir, goal)
+                print(f"{ui.dim('  [dry-run] 已生成模板 FinalGoal.md（' + ('扩写' if want_expand else '直接') + '模式预览）')}")
+            elif want_expand:
+                if _expand_goal(cfg, goal):
+                    print(f"{ui.ok('[ok] 已通过 Cursor 扩写生成 FinalGoal.md + TODO.md')}")
+                else:
+                    print(ui.warn("[warn] 扩写失败，回退为直接创建 FinalGoal.md（TODO 由首次运行生成）"))
+                    _write_final_goal(cfg.project_dir, goal)
+            else:
+                p = _write_final_goal(cfg.project_dir, goal)
+                print(f"{ui.ok('[ok] 已创建 FinalGoal.md')} → {p}")
+                print(ui.dim("      首次运行将读取它生成初始 TODO.md"))
 
     # 场景 B：旧项目 —— 显示任务分析，确认后续跑
     elif prof["has_todo"] and not args.yes:
@@ -267,6 +320,8 @@ def build_parser() -> argparse.ArgumentParser:
                        help="目标项目目录（默认当前目录）")
         p.add_argument("--no-plan", action="store_true",
                        help="run 时跳过生成 TODO（用已有 TODO.md）")
+        p.add_argument("--no-expand", action="store_true",
+                       help="新项目初始化时不询问扩写，直接创建 FinalGoal.md（模板形式）")
         p.add_argument("--yes", action="store_true",
                        help="跳过交互询问（非交互模式，直接运行）")
     sub.choices["init"].add_argument("--final-goal", action="store_true",
