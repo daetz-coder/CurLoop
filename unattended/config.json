@@ -1,0 +1,81 @@
+{
+  "project_dir": "D:\\2026AppDev\\RAGLab",
+  "todo_path": "TODO.md",
+  "final_goal_file": "FinalGoal.md",
+  "auto_plan_todo": true,
+  "git_commit_after_task": true,
+  "cursor": {
+    "exe": "C:\\Program Files\\cursor\\Cursor.exe",
+    "profile": "%APPDATA%\\Cursor",
+    "port": 9333,
+    "remote_allow_origins": "*"
+  },
+  "login_assistant": {
+    "exe": "C:\\Users\\ASUS\\Desktop\\CursorLoginAssistant-836.exe",
+    "refresh_template": "C:\\Users\\ASUS\\Desktop\\refresh_cursor.png",
+    "confirm_template": "C:\\Users\\ASUS\\Desktop\\confirm_ok.png",
+    "confidence": 0.85,
+    "launch_wait_s": 25.0,
+    "confirm_wait_s": 12.0,
+    "close_after_refresh": true
+  },
+  "detection": {
+    "limit_require_recent": true,
+    "limit_keywords_en": [
+      "reached your limit",
+      "limit reached",
+      "usage limit",
+      "rate limit",
+      "too many requests",
+      "you've run out",
+      "out of requests",
+      "upgrade to pro",
+      "slow pool",
+      "slow mode",
+      "daily limit",
+      "request limit"
+    ],
+    "limit_keywords_cn": [
+      "达到上限",
+      "已达上限",
+      "次数已达",
+      "使用限额",
+      "用量限制",
+      "免费版",
+      "升级到",
+      "请求次数",
+      "稍后再试",
+      "会员",
+      "订阅",
+      "额度已用",
+      "慢速模式"
+    ],
+    "logged_out_keywords": [
+      "you have been signed out",
+      "已退出登录",
+      "重新登录",
+      "会话已过期",
+      "session expired"
+    ]
+  },
+  "timeouts": {
+    "cdp_ready_s": 90,
+    "dom_ready_s": 120,
+    "reply_max_s": 900,
+    "completion_stable_polls": 12,
+    "completion_poll_interval_s": 3,
+    "min_elapsed_before_complete_s": 10,
+    "switch_token_timeout_s": 60
+  },
+  "retry": {
+    "hang_retries_per_task": 1,
+    "send_retries": 2,
+    "max_total_account_switches_per_run": 5,
+    "cooldown_between_switches_s": 30,
+    "auto_extend": true,
+    "auto_extend_max_iterations": 20
+  },
+  "state_dir": "D:\\2026AppDev\\CursorHarness\\unattended\\runstate",
+  "event_log": "events.jsonl",
+  "mode": "dry-run"
+}

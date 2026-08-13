@@ -1,0 +1,19 @@
+# Windows 批处理必须 CRLF：cmd.exe 按系统代码页解析，LF-only 或编码错乱会解析失败
+*.bat text eol=crlf
+
+# PowerShell 脚本保持 CRLF（Windows 原生）
+*.ps1 text eol=crlf
+
+# 源码/脚本/文档按仓库现状（默认 LF）
+*.py text
+*.md text
+*.json text
+*.txt text
+*.toml text
+
+# 二进制（不参与文本规范化/差异对比）
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
