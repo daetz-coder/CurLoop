@@ -331,6 +331,23 @@ def build_parser() -> argparse.ArgumentParser:
     return ap
 
 
+ALL_SLASH = ["/help", "/status", "/stats", "/run", "/plan", "/watch", "/init", "/project", "/exit", "/quit"]
+
+try:  # Python 3.13+ ships readline on Windows too — Tab completion in the REPL
+    import readline  # noqa: F401
+
+    def _complete(text: str, state: int) -> str | None:
+        matches = [c for c in ALL_SLASH if c.startswith(text)]
+        return matches[state] if state < len(matches) else None
+
+    readline.set_completer(_complete)
+    readline.set_completer_delims(" \t")
+    readline.parse_and_bind("tab: complete")
+    _HAS_READLINE = True
+except Exception:  # noqa: BLE001
+    _HAS_READLINE = False
+
+
 def _slash_help() -> str:
     """构造帮助文本（惰性：用当前 _ANSI 状态，避免模块级固化转义码）。"""
     c = ui.C
@@ -348,13 +365,12 @@ def _slash_help() -> str:
 
 
 LOGO = r"""
-   ██████  ██     ██ ████████  ██        ███████   ███████  ████████
-  ██    ██ ██     ██ ██     ██ ██       ██     ██ ██     ██ ██     ██
-  ██       ██     ██ ██     ██ ██       ██     ██ ██     ██ ██     ██
-  ██       ██     ██ ████████  ██       ██     ██ ██     ██ ████████
-  ██       ██     ██ ██   ██   ██       ██     ██ ██     ██ ██
-  ██    ██ ██     ██ ██    ██  ██       ██     ██ ██     ██ ██
-   ██████   ███████  ██     ██ ████████  ███████   ███████  ██"""
+ ██████╗██╗   ██╗██████╗ ██╗      ██████╗  ██████╗  ██████╗
+██╔════╝██║   ██║██╔══██╗██║     ██╔═══██╗██╔═══██╗██╔═══██╗
+██║     ██║   ██║██████╔╝██║     ██║   ██║██║   ██║██║   ██║
+██║     ██║   ██║██╔══██╗██║     ██║   ██║██║   ██║██║   ██║
+╚██████╗╚██████╔╝██║  ██║███████╗╚██████╔╝╚██████╔╝╚██████╔╝
+ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝  ╚═════╝"""
 
 
 def _todo_counts(project: str) -> tuple[int, int]:
@@ -457,6 +473,16 @@ def repl(project: str | None = None) -> int:
                 print(f"  {ui.dim('当前项目')}  {ui.paint(project, ui.C.CYAN)}")
             continue
         fn = handlers.get(cmd)
+        if fn is None:
+            # 前缀自动补全：唯一匹配直接执行，多个匹配列出
+            matches = [c for c in ALL_SLASH if c.startswith(cmd)]
+            if len(matches) == 1:
+                print(f"  {ui.dim('↳ 匹配')} {ui.paint(matches[0], ui.C.YELLOW)}")
+                cmd = matches[0]
+                fn = handlers.get(cmd)
+            elif len(matches) > 1:
+                print(f"  {ui.dim('↳ 匹配多个：')} {ui.paint(' '.join(matches), ui.C.YELLOW)}")
+                continue
         if fn is None:
             print(ui.warn(f"  ✗ 未知命令：{cmd}  （/help 查看）"))
             continue
