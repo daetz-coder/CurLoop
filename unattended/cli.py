@@ -347,6 +347,60 @@ def _slash_help() -> str:
 """
 
 
+LOGO = r"""
+ ██████╗██╗   ██╗██████╗ ██╗      ██████╗  ██████╗ ██████╗
+██╔════╝██║   ██║██╔══██╗██║     ██╔═══██╗██╔═══██╗██╔══██╗
+██║     ██║   ██║██████╔╝██║     ██║   ██║██║   ██║██████╔╝
+██║     ██║   ██║██╔══██╗██║     ██║   ██║██║   ██║██╔══██╗
+╚██████╗╚██████╔╝██║  ██║███████╗╚██████╔╝╚██████╔╝██║  ██║
+ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝"""
+
+
+def _todo_counts(project: str) -> tuple[int, int]:
+    """(pending, total) from the project's TODO.md."""
+    try:
+        from .todo_queue import parse_all
+
+        cfg = Config.load()
+        cfg.project_dir = Path(project)
+        todos = parse_all(cfg.todo_file)
+        return sum(1 for t in todos if not t.done), len(todos)
+    except Exception:
+        return 0, 0
+
+
+def _banner(project: str) -> str:
+    """启动横幅：logo + 当前项目实时统计 + 快速开始。"""
+    c = ui.C
+    try:
+        st = observer.build_status(project=project)["stats"]
+    except Exception:
+        st = {}
+    pending, total = _todo_counts(project)
+    switches = st.get("switches", 0)
+    sends = st.get("sends", 0)
+    done = st.get("tasks_done", 0)
+    mode = st.get("mode") or "live"
+
+    lines = [
+        ui.paint(LOGO, c.CYAN, bold=True),
+        ui.dim("  持续 Cursor 对话循环 + 自动换号 · 目标驱动 · 无人值守 · git commit"),
+        ui.dim("  " + "─" * 58),
+        f"  {ui.dim('项目')}   {ui.paint(project, c.CYAN)}",
+        f"  {ui.dim('状态')}   {ui.head('换号')} {ui.num(str(switches))}   "
+        f"{ui.head('对话')} {ui.num(str(sends))}   {ui.head('完成')} {ui.ok(str(done))}   "
+        f"{ui.head('待办')} {ui.warn(f'{pending}/{total}')}",
+        f"  {ui.dim('模式')}   {ui.ok(mode)}   {ui.dim('（/run --mode limit-sim 可做换号链路测试）')}",
+        ui.dim("  " + "─" * 58),
+        f"  {ui.head('快速开始')}   "
+        f"{ui.paint('❯ /run', c.YELLOW)} 开始无人值守   "
+        f"{ui.paint('❯ /status', c.YELLOW)} 查看状态   "
+        f"{ui.paint('❯ /project <路径>', c.YELLOW)} 切换项目   "
+        f"{ui.paint('❯ /help', c.YELLOW)} 全部命令",
+    ]
+    return "\n".join(lines)
+
+
 def _slash_args(cmd: str, rest: str, project: str) -> argparse.Namespace:
     """构造与一次性 CLI 相同的参数对象。"""
     a = argparse.Namespace()
@@ -364,12 +418,7 @@ def repl(project: str | None = None) -> int:
     ui.init()
     project = project or os.getcwd()
     print()
-    print(f"  {ui.head('curloop')}  {ui.dim('· 持续 Cursor 对话循环 + 自动换号')}")
-    print(f"  {ui.dim('自动换号 · 目标驱动 · 无人值守 · git commit')}")
-    print()
-    print(f"  {ui.dim('当前项目')}  {ui.paint(project, ui.C.CYAN)}")
-    print(f"  {ui.dim('输入')} {ui.paint('/help', ui.C.YELLOW)} {ui.dim('查看命令')}  ·  {ui.dim('输入')} {ui.paint('/exit', ui.C.YELLOW)} {ui.dim('退出')}")
-    print(ui.dim("  " + "─" * 54))
+    print(_banner(project))
     print()
     handlers = {
         "/status": cmd_status,
