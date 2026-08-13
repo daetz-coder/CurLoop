@@ -295,7 +295,8 @@ def build_parser() -> argparse.ArgumentParser:
   curloop init --final-goal         生成 FinalGoal.md + TODO.md 模板
 
 {ui.head('说明')}
-  · 在哪个目录运行，就对哪个目录执行 Harness（当前目录 = 目标项目）。
+  · 直接输入 curloop（无参数）进入【交互式主 CLI】，内部用 /status /run /stats /help 等斜杠命令。
+  · 在哪个目录运行，就对哪个目录执行 Harness（当前目录 = 目标项目）；/project 可切换。
   · 首次运行需要 FinalGoal.md：curloop init --final-goal 生成模板后编辑。
   · 无人值守会自动：关弹窗 / 换号 / 每完成一个任务 git commit / 队列空自动续任务。
   · 观察面板：python dashboard.py 或双击 unattended\\dashboard.bat → http://127.0.0.1:8765
@@ -306,7 +307,7 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub = ap.add_subparsers(dest="cmd")  # 可省略：无子命令进入交互式 REPL（/status 等）
     sub.add_parser("run", help="无人值守运行（默认；读 FinalGoal 生成 TODO → 执行 → 续接）")
     sub.add_parser("plan", help="只生成 TODO.md（读 FinalGoal，不执行）")
     sub.add_parser("status", help="显示当前项目状态与统计")
@@ -330,10 +331,89 @@ def build_parser() -> argparse.ArgumentParser:
     return ap
 
 
+SLASH_HELP = f"""{ui.head('curloop 斜杠命令')}
+  /help                    显示本帮助
+  /status                  当前项目状态与统计（换号/对话/队列/事件）
+  /stats                   统计摘要
+  /run                     无人值守运行（可带 --yes / --no-plan）
+  /plan                    只生成 TODO.md（读 FinalGoal）
+  /watch                   实时监控（Ctrl-C 返回）
+  /init                    生成 FinalGoal.md / TODO.md 模板（--final-goal 同时生成 FinalGoal）
+  /project <路径>           切换目标项目（默认当前目录）
+  /exit                    退出（或 Ctrl-C / Ctrl-D）
+"""
+
+
+def _slash_args(cmd: str, rest: str, project: str) -> argparse.Namespace:
+    """构造与一次性 CLI 相同的参数对象。"""
+    a = argparse.Namespace()
+    a.mode = "live"
+    a.project = project
+    a.no_plan = "--no-plan" in rest
+    a.no_expand = "--no-expand" in rest
+    a.final_goal = "--final-goal" in rest
+    a.yes = "--yes" in rest
+    return a
+
+
+def repl(project: str | None = None) -> int:
+    """交互式主 CLI：curloop 进入后内部用 /命令 操作。"""
+    ui.init()
+    project = project or os.getcwd()
+    print()
+    print(ui.head("curloop") + ui.dim(" · 持续 Cursor 对话循环 + 自动换号"))
+    print(ui.dim(f"  当前项目：{project}"))
+    print(ui.dim("  输入 /help 查看命令，/exit 退出"))
+    print()
+    handlers = {
+        "/status": cmd_status,
+        "/stats": cmd_stats,
+        "/run": cmd_run,
+        "/plan": cmd_plan,
+        "/watch": cmd_watch,
+        "/init": cmd_init,
+    }
+    while True:
+        try:
+            line = input(ui.paint("curloop> ", ui.C.CYAN)).strip()
+        except (EOFError, KeyboardInterrupt):
+            print(ui.dim("\n退出 curloop"))
+            return 0
+        if not line:
+            continue
+        if not line.startswith("/"):
+            print(ui.warn(f"未知输入：{line}  （命令以 / 开头，如 /status；/help 查看）"))
+            continue
+        cmd, _, rest = line.partition(" ")
+        if cmd in ("/exit", "/quit"):
+            print(ui.dim("退出 curloop"))
+            return 0
+        if cmd == "/help":
+            print(SLASH_HELP)
+            continue
+        if cmd == "/project":
+            if rest.strip():
+                project = rest.strip()
+                print(ui.ok(f"已切换项目：{project}"))
+            else:
+                print(ui.dim(f"当前项目：{project}"))
+            continue
+        fn = handlers.get(cmd)
+        if fn is None:
+            print(ui.warn(f"未知命令：{cmd}  （/help 查看）"))
+            continue
+        rc = fn(_slash_args(cmd, rest, project))
+        print(ui.dim(f"  （返回 {rc}）"))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ui.init()  # 先初始化颜色（isatty 判定），避免 help 泄漏转义码
     ap = build_parser()
     args = ap.parse_args(argv)
+    if not args.cmd:
+        # 无子命令 → 交互式主 CLI（斜杠命令）
+        return repl()
     if args.cmd == "run":
         return cmd_run(args)
     if args.cmd == "plan":
