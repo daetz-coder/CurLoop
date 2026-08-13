@@ -90,7 +90,12 @@ REPLY_JS = r"""
   // past-tense ("已写入", "已完成") — a completion reply like "已写入
   // selftest_output.txt" previously matched the bare verb 写入 and kept the
   // tracker busy forever.
-  const thinking = /(thinking|generating|working on|planning|正在思考|思考中|生成中|运行中|正在运行|正在执行|正在生成|正在读取|正在编辑|正在写入|正在搜索|正在规划|正在准备)/i.test(body);
+  // Scope: only the LAST few messages, never document.body. Whole-body scans
+  // pick up static UI text (git timeline commit messages like "related
+  // planning files", sidebar labels) and pin busy=True forever.
+  const thinking = /(thinking|generating|working on|planning|正在思考|思考中|生成中|运行中|正在运行|正在执行|正在生成|正在读取|正在编辑|正在写入|正在搜索|正在规划|正在准备)/i.test(
+    all.slice(-3).join('\n') || ''
+  );
   const toolActivity = /(running|executing|searching|reading|editing|writing|planning|applying|running terminal|正在运行|正在执行|正在搜索|正在读取|正在编辑|正在写入|正在规划|正在应用|运行中|执行中|处理中|规划中|读取中|准备中)/i.test(last);
   // Long tool runs (minutes) may keep the LAST message stable; look at the
   // last few messages so an in-progress tool card ("正在执行 xxx") still
@@ -181,7 +186,12 @@ class CompletionTracker:
             self._stable = 0
             self._last_len = -1
             self._last_tail = None
-            return "busy", f"agent busy {elapsed:.0f}s (stop/thinking/tool)"
+            flags = "+".join(
+                k for k in ("hasStop", "thinking", "toolActivity", "toolRunning",
+                            "toolWaiting", "hasQueued", "composerText")
+                if s.get(k)
+            )
+            return "busy", f"agent busy {elapsed:.0f}s ({flags or '?'})"
 
         last_len = int(s.get("lastLen", 0) or 0)
         tail = s.get("lastTail") or ""
