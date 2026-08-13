@@ -347,6 +347,41 @@ try:  # Python 3.13+ ships readline on Windows too — Tab completion in the REP
 except Exception:  # noqa: BLE001
     _HAS_READLINE = False
 
+try:  # prompt_toolkit: 输入 / 即自动弹出悬浮补全菜单（Windows 无 readline 的正解）
+    from prompt_toolkit import PromptSession
+    from prompt_toolkit.completion import Completer, Completion
+    from prompt_toolkit.formatted_text import ANSI as _PT_ANSI
+    from prompt_toolkit.history import InMemoryHistory
+
+    class _SlashCompleter(Completer):
+        def get_completions(self, document, complete_event):
+            text = document.text_before_cursor
+            if not text.startswith("/"):
+                return  # 只对 / 命令做悬浮补全，不干扰普通输入
+            for c in ALL_SLASH:
+                if c.startswith(text):
+                    yield Completion(c, start_position=0)
+
+    _HAS_PROMPT_TOOLKIT = True
+    _pt_session: PromptSession | None = None
+except Exception:  # noqa: BLE001
+    _HAS_PROMPT_TOOLKIT = False
+
+
+def _read_input(prompt: str) -> str:
+    """终端交互优先用 prompt_toolkit（输入 / 实时弹出匹配列表），
+    管道/重定向或无依赖时退回 input()，行为与原来一致。"""
+    global _pt_session
+    if _HAS_PROMPT_TOOLKIT and sys.stdin.isatty() and sys.stdout.isatty():
+        if _pt_session is None:
+            _pt_session = PromptSession(history=InMemoryHistory())
+        return _pt_session.prompt(
+            _PT_ANSI(prompt),
+            completer=_SlashCompleter(),
+            complete_while_typing=True,
+        )
+    return input(prompt)
+
 
 def _slash_help() -> str:
     """构造帮助文本（惰性：用当前 _ANSI 状态，避免模块级固化转义码）。"""
@@ -447,7 +482,7 @@ def repl(project: str | None = None) -> int:
     }
     while True:
         try:
-            line = input(ui.paint("❯ ", ui.C.CYAN)).strip()
+            line = _read_input(ui.paint("❯ ", ui.C.CYAN)).strip()
         except (EOFError, KeyboardInterrupt):
             print(ui.dim("\n退出 curloop"))
             return 0
