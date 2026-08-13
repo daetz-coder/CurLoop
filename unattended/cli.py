@@ -492,6 +492,17 @@ def repl(project: str | None = None) -> int:
             print(ui.warn(f"  ✗ 未知输入：{line}  （命令以 / 开头，如 /status；/help 查看）"))
             continue
         cmd, _, rest = line.partition(" ")
+        # 前缀自动补全：不在已知命令集合时才尝试匹配。唯一匹配 → 归一 cmd 后
+        # 继续向下分发（/exit /help /project 不在 handlers 里，必须由各自分支处理）；
+        # 多个匹配 → 列出候选。归一必须在分发之前，绝不能用 continue 回顶部重读输入。
+        if cmd not in ("/exit", "/quit", "/help", "/project") and cmd not in handlers:
+            matches = [c for c in ALL_SLASH if c.startswith(cmd)]
+            if len(matches) == 1:
+                print(f"  {ui.dim('↳ 匹配')} {ui.paint(matches[0], ui.C.YELLOW)}")
+                cmd = matches[0]
+            elif len(matches) > 1:
+                print(f"  {ui.dim('↳ 匹配多个：')} {ui.paint(' '.join(matches), ui.C.YELLOW)}")
+                continue
         if cmd in ("/exit", "/quit"):
             print(ui.dim("退出 curloop"))
             return 0
@@ -508,18 +519,6 @@ def repl(project: str | None = None) -> int:
                 print(f"  {ui.dim('当前项目')}  {ui.paint(project, ui.C.CYAN)}")
             continue
         fn = handlers.get(cmd)
-        if fn is None:
-            # 前缀自动补全：唯一匹配直接执行，多个匹配列出
-            matches = [c for c in ALL_SLASH if c.startswith(cmd)]
-            if len(matches) == 1:
-                print(f"  {ui.dim('↳ 匹配')} {ui.paint(matches[0], ui.C.YELLOW)}")
-                # 重新走一遍完整分发：/exit /quit /help /project 不在 handlers 里，
-                # 必须回到循环顶部由各自分支处理，否则会误报"未知命令"
-                line = matches[0]
-                continue
-            elif len(matches) > 1:
-                print(f"  {ui.dim('↳ 匹配多个：')} {ui.paint(' '.join(matches), ui.C.YELLOW)}")
-                continue
         if fn is None:
             print(ui.warn(f"  ✗ 未知命令：{cmd}  （/help 查看）"))
             continue
