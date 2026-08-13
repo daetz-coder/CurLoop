@@ -42,13 +42,110 @@ def _cfg(project: Path, mode: str) -> Config:
     return cfg
 
 
+def _project_profile(project: Path) -> dict:
+    return {
+        "has_goal": (project / "FinalGoal.md").exists(),
+        "has_todo": (project / "TODO.md").exists(),
+        "is_git": (project / ".git").exists(),
+    }
+
+
+def _ask_goal(project: Path) -> str | None:
+    """新项目引导：请用户输入最终目标，返回文本（取消返回 None）。"""
+    print()
+    print(ui.head("📌 新项目检测：") + f" {ui.paint(str(project), ui.C.CYAN)}")
+    print(ui.dim("   未找到 FinalGoal.md / TODO.md，需要先初始化。"))
+    print("   请输入本项目的【最终目标】（可多行，空行结束；Ctrl-C 取消）：")
+    lines: list[str] = []
+    try:
+        while True:
+            try:
+                line = input(ui.paint("  > ", ui.C.CYAN))
+            except EOFError:
+                break
+            if not line.strip():
+                break
+            lines.append(line.strip())
+    except KeyboardInterrupt:
+        print("\n已取消")
+        return None
+    if not lines:
+        print(ui.warn("未输入目标，取消初始化"))
+        return None
+    return "\n".join(lines)
+
+
+def _write_final_goal(project: Path, text: str) -> Path:
+    p = project / "FinalGoal.md"
+    content = (
+        "# 最终目标（FinalGoal）\n\n"
+        "> 由 curloop 初始化生成；本文件是仓库的最高级规划。\n\n"
+        "## 最终目标\n\n"
+        f"{text}\n\n"
+        "## 硬门槛 / 交付物\n\n"
+        "- [ ] （待补充，后续规划会对照本目标生成 TODO）\n"
+    )
+    p.write_text(content, encoding="utf-8")
+    return p
+
+
+def _confirm_resume(cfg: Config) -> bool:
+    """旧项目：显示任务分析，确认后直接续跑。"""
+    from .todo_queue import parse_all
+
+    todos = parse_all(cfg.todo_file)
+    pending = [t for t in todos if not t.done]
+    done = [t for t in todos if t.done]
+    print()
+    print(ui.head("📋 项目状态：") + f" {ui.paint(str(cfg.project_dir), ui.C.CYAN)}")
+    print(f"   {ui.num(str(len(pending)))} 待办  /  {ui.ok(str(len(done))) + ' 已完成'}"
+          f"{ui.dim('    (git: ' + ('是' if (cfg.project_dir / '.git').exists() else '否') + ')')}")
+    for t in pending[:10]:
+        print(f"   {ui.dim('·')} {t.text[:64]}")
+    if len(pending) > 10:
+        print(f"   {ui.dim(f'… 还有 {len(pending) - 10} 项')}")
+    try:
+        ans = input(ui.paint("继续运行？[Y/n] ", ui.C.CYAN)).strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        return False
+    return ans in ("", "y", "yes")
+
+
 def cmd_run(args) -> int:
+    ui.init()
     cfg = _cfg(Path(args.project), args.mode)
     if args.no_plan and not cfg.todo_file.exists():
         print(ui.err("[fail] --no-plan 但 TODO.md 不存在，无法运行"))
         return 2
+
+    prof = _project_profile(cfg.project_dir)
+
+    # 场景 A：全新项目 —— 引导输入最终目标 → 创建 FinalGoal.md
+    if not prof["has_goal"] and not prof["has_todo"]:
+        if args.yes:
+            print(ui.warn("[warn] 新项目但 --yes：跳过初始化，将无规划直接结束（先 curloop init）"))
+        else:
+            goal = _ask_goal(cfg.project_dir)
+            if goal is None:
+                return 1
+            p = _write_final_goal(cfg.project_dir, goal)
+            print(f"{ui.ok('[ok] 已创建 FinalGoal.md')} → {p}")
+            print(ui.dim("      首次运行将读取它生成初始 TODO.md"))
+
+    # 场景 B：旧项目 —— 显示任务分析，确认后续跑
+    elif prof["has_todo"] and not args.yes:
+        if not _confirm_resume(cfg):
+            print(ui.dim("[curloop] 已取消"))
+            return 1
+
+    # 场景 C：有目标无 TODO（或 --yes 跳过询问）→ 直接进入 loop（首次会生成 TODO）
     print(f"{ui.head('[curloop] run')}  {ui.paint(str(cfg.project_dir), ui.C.CYAN)}  "
           f"(mode={ui.warn(args.mode)}, plan={'off' if args.no_plan else 'on'})")
+
+    if args.mode == "dry-run":
+        print(ui.dim("[curloop] dry-run：仅引导与预览，不执行任务；去掉 --mode dry-run 即真正运行"))
+        return 0
+
     return loop.run(cfg)
 
 
@@ -170,6 +267,8 @@ def build_parser() -> argparse.ArgumentParser:
                        help="目标项目目录（默认当前目录）")
         p.add_argument("--no-plan", action="store_true",
                        help="run 时跳过生成 TODO（用已有 TODO.md）")
+        p.add_argument("--yes", action="store_true",
+                       help="跳过交互询问（非交互模式，直接运行）")
     sub.choices["init"].add_argument("--final-goal", action="store_true",
                                      help="同时生成 FinalGoal.md")
     return ap
