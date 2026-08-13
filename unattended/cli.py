@@ -513,8 +513,10 @@ def repl(project: str | None = None) -> int:
             matches = [c for c in ALL_SLASH if c.startswith(cmd)]
             if len(matches) == 1:
                 print(f"  {ui.dim('↳ 匹配')} {ui.paint(matches[0], ui.C.YELLOW)}")
-                cmd = matches[0]
-                fn = handlers.get(cmd)
+                # 重新走一遍完整分发：/exit /quit /help /project 不在 handlers 里，
+                # 必须回到循环顶部由各自分支处理，否则会误报"未知命令"
+                line = matches[0]
+                continue
             elif len(matches) > 1:
                 print(f"  {ui.dim('↳ 匹配多个：')} {ui.paint(' '.join(matches), ui.C.YELLOW)}")
                 continue
