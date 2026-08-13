@@ -16,6 +16,24 @@
 4. 队列空 → 轻量 auto_extend 续任务 → 轻量无新任务时再对照 FinalGoal 重规划
 5. 目标完成（两层规划都无新任务）→ 停止
 
+## CLI（在任意目录使用，当前目录 = 目标项目）
+
+```bash
+# 在目标项目目录下执行（可用绝对路径或把 harness 根加入 PATH）
+python D:\2026AppDev\CursorHarness\harness.py run        # 无人值守运行（默认：规划+执行+续接）
+python D:\2026AppDev\CursorHarness\harness.py plan       # 只生成 TODO.md（读 FinalGoal，不执行）
+python D:\2026AppDev\CursorHarness\harness.py status     # 状态+统计（队列/运行时长/换号/对话/事件）
+python D:\2026AppDev\CursorHarness\harness.py stats      # 统计摘要
+python D:\2026AppDev\CursorHarness\harness.py watch      # 实时监控（每 3 秒刷新）
+python D:\2026AppDev\CursorHarness\harness.py init       # 生成 FinalGoal.md/TODO.md 模板
+
+# 常用选项：--mode live|limit-sim|dry-run、--no-plan（跳过生成 TODO）、--project PATH
+harness.bat run --mode live          # 或双击 harness.bat（需带参数/或用 cmd）
+```
+
+> `harness.py` 不切换工作目录：在哪个目录运行，就对哪个目录执行 Harness。
+> 也可用 `unattended\pick_project.bat`（projects.txt 菜单选择项目）或 `unattended\run_unattended.bat --here`。
+
 ## 使用
 
 ```bash
