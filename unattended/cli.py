@@ -331,16 +331,19 @@ def build_parser() -> argparse.ArgumentParser:
     return ap
 
 
-SLASH_HELP = f"""{ui.head('curloop 斜杠命令')}
-  /help                    显示本帮助
-  /status                  当前项目状态与统计（换号/对话/队列/事件）
-  /stats                   统计摘要
-  /run                     无人值守运行（可带 --yes / --no-plan）
-  /plan                    只生成 TODO.md（读 FinalGoal）
-  /watch                   实时监控（Ctrl-C 返回）
-  /init                    生成 FinalGoal.md / TODO.md 模板（--final-goal 同时生成 FinalGoal）
-  /project <路径>           切换目标项目（默认当前目录）
-  /exit                    退出（或 Ctrl-C / Ctrl-D）
+def _slash_help() -> str:
+    """构造帮助文本（惰性：用当前 _ANSI 状态，避免模块级固化转义码）。"""
+    c = ui.C
+    return f"""{ui.head('✦ 可用命令')}
+  {ui.paint('❯', c.CYAN)} /help        显示本帮助
+  {ui.paint('❯', c.CYAN)} /status      查看状态与统计（换号 / 对话 / 队列 / 事件）
+  {ui.paint('❯', c.CYAN)} /stats       统计摘要
+  {ui.paint('❯', c.CYAN)} /run         无人值守运行（--yes / --no-plan）
+  {ui.paint('❯', c.CYAN)} /plan        只生成 TODO.md（读 FinalGoal）
+  {ui.paint('❯', c.CYAN)} /watch       实时监控（Ctrl-C 返回）
+  {ui.paint('❯', c.CYAN)} /init        生成 FinalGoal.md / TODO.md 模板（--final-goal）
+  {ui.paint('❯', c.CYAN)} /project <路径>  切换目标项目
+  {ui.paint('❯', c.CYAN)} /exit        退出（或 Ctrl-C / Ctrl-D）
 """
 
 
@@ -361,9 +364,12 @@ def repl(project: str | None = None) -> int:
     ui.init()
     project = project or os.getcwd()
     print()
-    print(ui.head("curloop") + ui.dim(" · 持续 Cursor 对话循环 + 自动换号"))
-    print(ui.dim(f"  当前项目：{project}"))
-    print(ui.dim("  输入 /help 查看命令，/exit 退出"))
+    print(f"  {ui.head('curloop')}  {ui.dim('· 持续 Cursor 对话循环 + 自动换号')}")
+    print(f"  {ui.dim('自动换号 · 目标驱动 · 无人值守 · git commit')}")
+    print()
+    print(f"  {ui.dim('当前项目')}  {ui.paint(project, ui.C.CYAN)}")
+    print(f"  {ui.dim('输入')} {ui.paint('/help', ui.C.YELLOW)} {ui.dim('查看命令')}  ·  {ui.dim('输入')} {ui.paint('/exit', ui.C.YELLOW)} {ui.dim('退出')}")
+    print(ui.dim("  " + "─" * 54))
     print()
     handlers = {
         "/status": cmd_status,
@@ -375,35 +381,39 @@ def repl(project: str | None = None) -> int:
     }
     while True:
         try:
-            line = input(ui.paint("curloop> ", ui.C.CYAN)).strip()
+            line = input(ui.paint("❯ ", ui.C.CYAN)).strip()
         except (EOFError, KeyboardInterrupt):
             print(ui.dim("\n退出 curloop"))
             return 0
         if not line:
             continue
         if not line.startswith("/"):
-            print(ui.warn(f"未知输入：{line}  （命令以 / 开头，如 /status；/help 查看）"))
+            print(ui.warn(f"  ✗ 未知输入：{line}  （命令以 / 开头，如 /status；/help 查看）"))
             continue
         cmd, _, rest = line.partition(" ")
         if cmd in ("/exit", "/quit"):
             print(ui.dim("退出 curloop"))
             return 0
         if cmd == "/help":
-            print(SLASH_HELP)
+            print()
+            print(_slash_help())
+            print()
             continue
         if cmd == "/project":
             if rest.strip():
                 project = rest.strip()
-                print(ui.ok(f"已切换项目：{project}"))
+                print(f"  {ui.ok('✓ 已切换项目')}  {ui.paint(project, ui.C.CYAN)}")
             else:
-                print(ui.dim(f"当前项目：{project}"))
+                print(f"  {ui.dim('当前项目')}  {ui.paint(project, ui.C.CYAN)}")
             continue
         fn = handlers.get(cmd)
         if fn is None:
-            print(ui.warn(f"未知命令：{cmd}  （/help 查看）"))
+            print(ui.warn(f"  ✗ 未知命令：{cmd}  （/help 查看）"))
             continue
+        print()
         rc = fn(_slash_args(cmd, rest, project))
-        print(ui.dim(f"  （返回 {rc}）"))
+        print(ui.dim(f"  ─ 返回 {rc} ─"))
+        print()
     return 0
 
 
