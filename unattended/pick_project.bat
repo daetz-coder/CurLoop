@@ -84,12 +84,7 @@ powershell -NoProfile -Command "Start-Sleep -Seconds 3"
 goto :waitport
 :ready
 echo [ok] Cursor 就绪
-rem ---- 自动启动观察面板（若 8765 未在运行） ----
-powershell -NoProfile -Command "$c = New-Object Net.Sockets.TcpClient; try { $c.Connect('127.0.0.1', 8765); exit 0 } catch { exit 1 }"
-if errorlevel 1 (
-  echo [..] 启动观察面板：http://127.0.0.1:8765
-  python -c "import subprocess,sys; subprocess.Popen([sys.executable, 'dashboard.py', '8765'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=0x208)"
-)（%PORT%）。
+（%PORT%）。
 
 rem ---- 无人值守循环（实时日志 + watchdog） ----
 cd /d "%HARNESS%"
