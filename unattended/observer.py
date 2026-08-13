@@ -129,14 +129,20 @@ def build_status(project: str | None = None) -> dict:
     st = {
         "switches": 0, "switch_ok": 0, "switch_failed": 0, "emails": [],
         "sends": 0, "tasks_done": 0, "tasks_start": 0, "extend_ok": 0,
-        "run_start": None, "mode": None, "project": None,
+        "run_start": None, "run_end": None, "run_end_kind": None,
+        "mode": None, "project": None,
     }
     for e in evs:
         ev = e.get("event")
         if ev == "run_start":
             st["run_start"] = e.get("ts", 0)
+            st["run_end"] = None  # 新一轮 run 开始，清除上一轮的结束标记
+            st["run_end_kind"] = None
             st["mode"] = e.get("mode")
             st["project"] = e.get("project")
+        elif ev in ("interrupt", "run_done", "run_abort"):
+            st["run_end"] = e.get("ts", 0)
+            st["run_end_kind"] = ev
         elif ev == "switch_start":
             st["switches"] += 1
         elif ev == "switch_ok":
@@ -154,9 +160,13 @@ def build_status(project: str | None = None) -> dict:
         elif ev == "extend_result" and e.get("new_tasks", 0) > 0:
             st["extend_ok"] += 1
 
-    running = ""
+    running = "-"
     if st["run_start"]:
-        running = f"{int(time.time() - st['run_start'])}s"
+        if st["run_end"]:
+            kinds = {"interrupt": "中断", "run_done": "完成", "run_abort": "中止"}
+            running = f"已停止({kinds.get(st['run_end_kind'], st['run_end_kind'])})"
+        else:
+            running = f"{int(time.time() - st['run_start'])}s"
 
     recent = [
         {"t": fmt_ts(e.get("ts", 0)), "event": e.get("event"), "detail": short_detail(e)}
