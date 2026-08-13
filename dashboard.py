@@ -87,7 +87,15 @@ refresh(); setInterval(refresh, 3000);
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):  # noqa: N802
         if self.path.startswith("/api/status"):
-            body = json.dumps(build_status(), ensure_ascii=False).encode("utf-8")
+            # ?project=D:\... 指定项目；缺省 = 最新活跃项目
+            project = None
+            if "?" in self.path:
+                q = self.path.split("?", 1)[1]
+                for kv in q.split("&"):
+                    k, _, v = kv.partition("=")
+                    if k == "project" and v:
+                        project = v
+            body = json.dumps(build_status(project=project), ensure_ascii=False).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))

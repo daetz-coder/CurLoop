@@ -11,33 +11,60 @@ import time
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parent.parent
-EVENTS = BASE / "unattended" / "runstate" / "events.jsonl"
-SNAPSHOT = BASE / "unattended" / "runstate" / "snapshot.json"
-
-_cache = {"mtime": 0.0, "events": []}
+RUNSTATE = BASE / "unattended" / "runstate"
+_cache = {"mtime": 0.0, "events": [], "path": ""}
 
 
-def load_events() -> list[dict]:
-    """Read events.jsonl, cached by mtime (the file grows while a run is active)."""
+def _slug(name: str) -> str:
+    import re
+
+    return re.sub(r'[\\/:*?"<>|]', "_", name).replace(" ", "_") or "default"
+
+
+def events_path(project: str | None = None) -> Path:
+    """events.jsonl for a project (its dir slug); None = most recently active."""
+    if project:
+        return RUNSTATE / _slug(Path(project).name) / "events.jsonl"
+    best, best_mt = RUNSTATE / "events.jsonl", 0.0  # 回退旧全局
     try:
-        mt = EVENTS.stat().st_mtime
-        if mt != _cache["mtime"]:
+        for p in RUNSTATE.glob("*/events.jsonl"):
+            try:
+                mt = p.stat().st_mtime
+                if mt > best_mt:
+                    best, best_mt = p, mt
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return best
+
+
+def snapshot_path(project: str | None = None) -> Path:
+    return events_path(project).with_name("snapshot.json")
+
+
+def load_events(project: str | None = None) -> list[dict]:
+    """Read events.jsonl (per project), cached by mtime."""
+    p = events_path(project)
+    try:
+        mt = p.stat().st_mtime
+        if mt != _cache["mtime"] or str(p) != _cache["path"]:
             evs: list[dict] = []
-            with EVENTS.open(encoding="utf-8") as fh:
+            with p.open(encoding="utf-8") as fh:
                 for line in fh:
                     try:
                         evs.append(json.loads(line))
                     except Exception:
                         pass
-            _cache.update(mtime=mt, events=evs)
+            _cache.update(mtime=mt, events=evs, path=str(p))
         return _cache["events"]
     except Exception:
         return _cache["events"]
 
 
-def load_snapshot() -> dict:
+def load_snapshot(project: str | None = None) -> dict:
     try:
-        return json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+        return json.loads(snapshot_path(project).read_text(encoding="utf-8"))
     except Exception:
         return {}
 
@@ -57,10 +84,48 @@ def short_detail(e: dict) -> str:
     return ""
 
 
-def build_status() -> dict:
-    """Compute stats + recent events + queue from the runstate files."""
-    evs = load_events()
-    snap = load_snapshot()
+def migrate_legacy() -> dict:
+    """Split the old global runstate/events.jsonl into per-project dirs.
+
+    Events are bucketed by the `project` field of each run_start; events after
+    a run_start inherit that bucket. The old file is renamed to .legacy.jsonl.
+    Returns {"projects": n, "events": n, "legacy": path}.
+    """
+    legacy = RUNSTATE / "events.jsonl"
+    if not legacy.exists():
+        return {"projects": 0, "events": 0, "legacy": None}
+    buckets: dict[str, list[str]] = {}
+    current: str | None = None
+    total = 0
+    for line in legacy.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            e = json.loads(line)
+        except Exception:
+            continue
+        total += 1
+        if e.get("event") == "run_start" and e.get("project"):
+            current = _slug(Path(e["project"]).name)
+        if current:
+            buckets.setdefault(current, []).append(line)
+    for slug, lines in buckets.items():
+        p = RUNSTATE / slug / "events.jsonl"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with p.open("a", encoding="utf-8") as fh:
+            fh.write("\n".join(lines) + "\n")
+    renamed = legacy.rename(legacy.with_suffix(".legacy.jsonl"))
+    return {"projects": len(buckets), "events": total, "legacy": str(renamed)}
+
+
+def build_status(project: str | None = None) -> dict:
+    """Compute stats + recent events + queue from the runstate files.
+
+    project: target project dir (its events/snapshot); None = most recent.
+    """
+    evs = load_events(project)
+    snap = load_snapshot(project)
     st = {
         "switches": 0, "switch_ok": 0, "switch_failed": 0, "emails": [],
         "sends": 0, "tasks_done": 0, "tasks_start": 0, "extend_ok": 0,

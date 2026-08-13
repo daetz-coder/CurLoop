@@ -175,12 +175,25 @@ class Config:
         return self.project_dir / self.final_goal_file
 
     @property
+    def project_state_dir(self) -> Path:
+        """Per-project runstate dir: runstate/<slug>/ (isolates events/snapshot
+        per project so stats never mix across projects)."""
+        return self.state_dir / self._slug(self.project_dir.name)
+
+    @property
     def snapshot_file(self) -> Path:
-        return self.state_dir / "snapshot.json"
+        return self.project_state_dir / "snapshot.json"
 
     @property
     def event_log_file(self) -> Path:
-        return self.state_dir / self.event_log
+        return self.project_state_dir / "events.jsonl"
+
+    @staticmethod
+    def _slug(name: str) -> str:
+        import re
+
+        s = re.sub(r'[\\/:*?"<>|]', "_", name).replace(" ", "_")
+        return s or "default"
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "Config":

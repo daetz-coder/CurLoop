@@ -177,6 +177,7 @@ def cmd_run(args) -> int:
             elif want_expand:
                 if _expand_goal(cfg, goal):
                     print(f"{ui.ok('[ok] 已通过 Cursor 扩写生成 FinalGoal.md + TODO.md')}")
+                    print(ui.dim("      即将自动开始执行队列（Ctrl-C 可取消）"))
                 else:
                     print(ui.warn("[warn] 扩写失败，回退为直接创建 FinalGoal.md（TODO 由首次运行生成）"))
                     _write_final_goal(cfg.project_dir, goal)
@@ -218,13 +219,13 @@ def cmd_plan(args) -> int:
 
 def cmd_status(args) -> int:
     ui.init()
-    print(ui.status_render(observer.build_status()))
+    print(ui.status_render(observer.build_status(project=str(Path(args.project)))))
     return 0
 
 
 def cmd_stats(args) -> int:
     ui.init()
-    print(ui.stats_render(observer.build_status()["stats"]))
+    print(ui.stats_render(observer.build_status(project=str(Path(args.project)))["stats"]))
     return 0
 
 
@@ -234,7 +235,7 @@ def cmd_watch(args) -> int:
     try:
         while True:
             os.system("cls" if os.name == "nt" else "clear")
-            print(ui.status_render(observer.build_status()))
+            print(ui.status_render(observer.build_status(project=str(Path(args.project)))))
             time.sleep(3)
     except KeyboardInterrupt:
         print("\n[curloop] watch 已停止")
