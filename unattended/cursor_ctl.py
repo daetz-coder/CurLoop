@@ -124,6 +124,9 @@ def ensure_ready(cfg: Config, workspace: Path, relaunch: bool = True) -> dict[st
 
     dom = _wait_dom_resilient(cfg)
     result["dom"] = {k: v for k, v in dom.items() if k != "page"}
+    if dom.get("_cdp_down"):
+        result["errors"].append("CDP went down while waiting for workbench DOM")
+        return result
     if dom.get("loggedOut") or not dom.get("inputVisible"):
         result["errors"].append("not logged in or chat input not visible")
         return result
@@ -149,6 +152,12 @@ def _wait_dom_resilient(cfg: Config) -> dict[str, Any]:
         except Exception as e:  # noqa: BLE001
             print(f"[dom] transient error, retrying: {type(e).__name__}: {e}")
             last = {"_error": str(e)}
+            # Cursor 进程已不在（CDP 也连不上）时，再等只会空转到 dom_ready_s
+            # 超时（120s），期间用户看到无限 retrying 只能 Ctrl-C。立即失败，
+            # 让上层走 ensure_failed -> 换号/relaunch 自动恢复。
+            if not cdp_up(port):
+                last["_cdp_down"] = True
+                return last
             time.sleep(2)
     return last
 
