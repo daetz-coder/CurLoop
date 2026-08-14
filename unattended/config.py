@@ -199,11 +199,11 @@ class RetryConfig:
 class UiConfig:
     """终端可视化配置（CLI 模式；非全屏状态块，不遮挡换号助手窗口）。"""
 
-    periodic_status_s: float = 0.0  # loop 运行中每 N 秒打印一次状态块；0 = 关闭（默认）
+    periodic_status_s: float = 180.0  # loop 运行中每 N 秒打印一次状态块；0 = 关闭（默认 3 分钟）
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "UiConfig":
-        return cls(periodic_status_s=_num(d, "periodic_status_s", 0.0))
+        return cls(periodic_status_s=_num(d, "periodic_status_s", 180.0))
 
 
 @dataclass
