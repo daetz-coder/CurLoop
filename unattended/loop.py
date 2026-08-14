@@ -238,6 +238,13 @@ def _ensure_idle_before_send(cfg: Config, state: RunState | None = None, timeout
             if state is not None:
                 state.log("idle_wait", busy=True, flags=flags,
                           detail="awaiting idle before send")
+            # Agent 空闲但 composer 残留文本（唯一 busy 信号）→ 清空解除卡死：
+            # 这是上一条 prompt 发送后的回显/残留，等 idle 永远不会来。
+            if flags == ["composerText"]:
+                cleared = cursor_ctl.clear_composer(cfg)
+                if state is not None and cleared.get("ok"):
+                    state.log("composer_cleared",
+                              reason="leftover composer text, agent idle")
             try:
                 cursor_ctl.dismiss_all(cfg.cursor.port)
             except Exception:  # noqa: BLE001

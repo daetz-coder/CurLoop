@@ -297,6 +297,20 @@ def send_prompt(cfg: Config, prompt: str, submit: bool = True) -> dict[str, Any]
     }
 
 
+def clear_composer(cfg: Config) -> dict[str, Any]:
+    """清空聊天输入框（focus → Ctrl-A → Backspace，不输入不提交）。
+
+    供空闲门禁使用：当 busy 的唯一信号是 composerText（Agent 本身空闲，
+    输入框里只有发送后的残留/回显文本）时，清空它解除 idle 卡死，
+    否则 _ensure_idle_before_send 会空等 30 分钟。
+    """
+    page, errors = best_page(cfg.cursor.port)
+    if not page:
+        return {"ok": False, "error": "no workbench page", "errors": errors}
+    typed = try_focus_and_type(cfg.cursor.port, page, "", submit=False)
+    return {"ok": bool(typed.get("ok")), "type": typed}
+
+
 # ------------------------------------------------------------------- poll ----
 def poll_reply(
     cfg: Config, tracker: CompletionTracker, prev_limit_hits: set[str]
