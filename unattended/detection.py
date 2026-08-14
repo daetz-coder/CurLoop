@@ -225,7 +225,7 @@ class CompletionTracker:
         self._last_len = last_len
         self._last_tail = tail
 
-        if elapsed > self.hard_timeout:
+        if self.hard_timeout > 0 and elapsed > self.hard_timeout:
             return "hard_timeout", f"no stable reply after {elapsed:.0f}s"
 
         return "waiting", f"len={last_len}"

@@ -61,7 +61,7 @@
   "timeouts": {
     "cdp_ready_s": 90,
     "dom_ready_s": 120,
-    "reply_max_s": 900,
+    "reply_max_s": 0,
     "completion_stable_polls": 12,
     "completion_poll_interval_s": 3,
     "min_elapsed_before_complete_s": 10,

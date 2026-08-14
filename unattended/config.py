@@ -153,7 +153,7 @@ class DetectionConfig:
 class Timeouts:
     cdp_ready_s: float = 90.0
     dom_ready_s: float = 120.0
-    reply_max_s: float = 900.0
+    reply_max_s: float = 0.0  # 等待回复硬超时；0 = 不限制（busy 期间本就不计，非 busy 卡死时无限等）
     completion_stable_polls: int = 4
     completion_poll_interval_s: float = 3.0
     min_elapsed_before_complete_s: float = 10.0
@@ -164,7 +164,7 @@ class Timeouts:
         return cls(
             cdp_ready_s=_num(d, "cdp_ready_s", 90.0),
             dom_ready_s=_num(d, "dom_ready_s", 120.0),
-            reply_max_s=_num(d, "reply_max_s", 900.0),
+            reply_max_s=_num(d, "reply_max_s", 0.0),
             completion_stable_polls=int(_num(d, "completion_stable_polls", 4)),
             completion_poll_interval_s=_num(d, "completion_poll_interval_s", 3.0),
             min_elapsed_before_complete_s=_num(d, "min_elapsed_before_complete_s", 10.0),
