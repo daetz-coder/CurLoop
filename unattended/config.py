@@ -28,6 +28,38 @@ def _expand(s: str) -> str:
     return os.path.expandvars(s)
 
 
+def current_branch(project_dir: Path) -> str:
+    """当前 git 分支名（读 `.git/HEAD`，零子进程；runstate 按分支隔离的 key 来源）。
+
+    - 普通仓库：`.git/HEAD` = ``ref: refs/heads/<branch>`` → 返回分支名
+    - linked worktree：`.git` 是文件，内容 ``gitdir: <real .git>`` → 继续读其 HEAD
+    - detached HEAD：HEAD 是 commit hash → 返回前 7 位（同 commit 稳定、不同 commit 隔离）
+    - 非 git / 读取失败 → ``"default"``
+    """
+    candidates: list[Path] = []
+    head = project_dir / ".git" / "HEAD"
+    if head.exists():
+        candidates.append(head)
+    try:
+        gitfile = project_dir / ".git"
+        if gitfile.is_file():
+            text = gitfile.read_text(encoding="utf-8", errors="replace").strip()
+            if text.startswith("gitdir:"):
+                candidates.append(Path(text[len("gitdir:"):].strip()) / "HEAD")
+    except Exception:  # noqa: BLE001
+        pass
+    for h in candidates:
+        try:
+            text = h.read_text(encoding="utf-8", errors="replace").strip()
+        except Exception:  # noqa: BLE001
+            continue
+        if text.startswith("ref: refs/heads/"):
+            return text[len("ref: refs/heads/"):].strip()
+        if text and not text.startswith("ref:"):
+            return text[:7]  # detached HEAD: 短 commit hash
+    return "default"
+
+
 def _path(d: dict[str, Any], key: str, default: Any = None) -> Path | None:
     v = d.get(key, default)
     if v in (None, ""):
@@ -188,9 +220,14 @@ class Config:
 
     @property
     def project_state_dir(self) -> Path:
-        """Per-project runstate dir: runstate/<slug>/ (isolates events/snapshot
-        per project so stats never mix across projects)."""
-        return self.state_dir / self._slug(self.project_dir.name)
+        """Per-(project, git branch) runstate dir: runstate/<slug>@<branch>/.
+
+        Isolates snapshot/events per branch so switching branches never mixes
+        queues, switch budgets, stats or event timelines. Non-git projects use
+        the `default` branch key (keeps the legacy directory name).
+        """
+        key = f"{self.project_dir.name}@{current_branch(self.project_dir)}"
+        return self.state_dir / self._slug(key)
 
     @property
     def snapshot_file(self) -> Path:

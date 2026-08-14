@@ -10,6 +10,8 @@ import json
 import time
 from pathlib import Path
 
+from .config import current_branch
+
 BASE = Path(__file__).resolve().parent.parent
 RUNSTATE = BASE / "unattended" / "runstate"
 _cache = {"mtime": 0.0, "events": [], "path": ""}
@@ -21,10 +23,16 @@ def _slug(name: str) -> str:
     return re.sub(r'[\\/:*?"<>|]', "_", name).replace(" ", "_") or "default"
 
 
+def _state_key(project: str) -> str:
+    """runstate 目录 key：<项目名>@<分支名>（与 config.project_state_dir 一致）。"""
+    p = Path(project)
+    return _slug(f"{p.name}@{current_branch(p)}")
+
+
 def events_path(project: str | None = None) -> Path:
-    """events.jsonl for a project (its dir slug); None = most recently active."""
+    """events.jsonl for a (project, branch) pair; None = most recently active."""
     if project:
-        return RUNSTATE / _slug(Path(project).name) / "events.jsonl"
+        return RUNSTATE / _state_key(project) / "events.jsonl"
     best, best_mt = RUNSTATE / "events.jsonl", 0.0  # 回退旧全局
     try:
         for p in RUNSTATE.glob("*/events.jsonl"):
@@ -107,7 +115,8 @@ def migrate_legacy() -> dict:
             continue
         total += 1
         if e.get("event") == "run_start" and e.get("project"):
-            current = _slug(Path(e["project"]).name)
+            # 旧全局日志无分支信息：归入 default 桶（= 非 git 项目的 key）
+            current = _slug(f"{Path(e['project']).name}@default")
         if current:
             buckets.setdefault(current, []).append(line)
     for slug, lines in buckets.items():
@@ -173,7 +182,12 @@ def build_status(project: str | None = None) -> dict:
         for e in reversed(evs[-30:])
     ]
     queue = [
-        {"text": t.get("text", "")[:70], "status": t.get("status")}
+        {
+            "text": t.get("text", "")[:70],
+            "status": t.get("status"),
+            "retries": t.get("retries", 0),
+            "switch_reason": t.get("switch_reason"),
+        }
         for t in snap.get("queue", [])
     ]
     return {
