@@ -23,7 +23,7 @@ from . import cursor_ctl
 from . import observer
 from . import ui
 from .config import Config
-from .detection import CompletionTracker, REPLY_JS
+from .detection import CompletionTracker, REPLY_JS, build_limit_js, build_logout_js
 from .login_assistant import refresh_account
 from .run_state import RunState
 from .todo_queue import TodoTask, mark_done, parse_all
@@ -189,12 +189,16 @@ def _maybe_print_status(cfg: Config) -> None:
         pass
 
 
-def _ensure_idle_before_send(cfg: Config, state: RunState | None = None, timeout_s: float = 1800.0) -> None:
+def _ensure_idle_before_send(cfg: Config, state: RunState | None = None, timeout_s: float = 1800.0) -> str:
     """Wait (up to timeout) until Cursor reports idle before sending the next
     prompt. Second line of defence against queueing prompts while the agent is
     still executing a long tool (shell/read/planning): even if wait_reply
     misjudges 'done', this gate blocks the actual send until busy clears.
-    On CDP error or timeout we proceed anyway to avoid deadlock."""
+    On CDP error or timeout we proceed anyway to avoid deadlock.
+
+    Returns "ok"（busy 已清，可发送）| "limit" | "logged_out"（等待期间
+    页面出现 usage limit / 登出提示——不能干等，调用方应触发换号）。
+    """
     deadline = time.time() + timeout_s
     waited = 0.0
     while time.time() < deadline:
@@ -202,17 +206,34 @@ def _ensure_idle_before_send(cfg: Config, state: RunState | None = None, timeout
         try:
             s = cursor_ctl.evaluate_js(cfg.cursor.port, REPLY_JS) or {}
             if not s.get("busy"):
-                return
+                return "ok"
             flags = sorted(
                 k for k in ("hasStop", "thinking", "toolActivity", "toolRunning",
                             "toolWaiting", "hasQueued", "composerText") if s.get(k)
             )
         except Exception:  # noqa: BLE001  CDP trouble — don't block the run
-            return
-        # 空闲门禁期间每 30s：记事件（用户能看到卡在哪）+ 清弹窗（弹窗可能
-        # 让 Agent 停在等待中，清掉有助于 busy 消除）。
+            return "ok"
+        # 空闲门禁期间每 30s：记事件（用户能看到卡在哪）+ 清弹窗 + 检测
+        # limit/logged_out。REPLY_JS 只报 busy 不报 limit——busy 恒真而页面
+        # 出现 "you've hit your usage limit" 时必须换号，不能干等 1800s。
         if waited >= 30.0:
             waited = 0.0
+            try:
+                ls = cursor_ctl.evaluate_js(cfg.cursor.port, build_limit_js(cfg.detection)) or {}
+                hits = ls.get("hits") or []
+                # idle 门禁内放宽为 hits 非空：busy 等待 + 页面出现 limit 关键词
+                # 几乎必是真 limit（Agent 因限流卡住），不是常驻横幅（横幅通常
+                # 伴随非 busy）。严格 >=2/hard 规则会漏掉单关键词页面
+                # （如 "you've hit your usage limit" 只命中 usage limit）。
+                if hits:
+                    if state is not None:
+                        state.log("idle_limit", hits=hits, busy=True, flags=flags)
+                    return "limit"
+                lo = cursor_ctl.evaluate_js(cfg.cursor.port, build_logout_js(cfg.detection)) or {}
+                if lo.get("loggedOut"):
+                    return "logged_out"
+            except Exception:  # noqa: BLE001
+                pass
             if state is not None:
                 state.log("idle_wait", busy=True, flags=flags,
                           detail="awaiting idle before send")
@@ -222,13 +243,15 @@ def _ensure_idle_before_send(cfg: Config, state: RunState | None = None, timeout
                 pass
         time.sleep(5)
         waited += 5.0
+    return "ok"  # 超时：按原语义放行，避免死锁
 
 
 def _send(cfg: Config, state: RunState, task: TodoTask, prompt: str) -> bool:
     if task.retries:
         prompt = f"{prompt}\n[这是第 {task.retries + 1} 次尝试，请继续完成；之前可能被中断]"
     for attempt in range(cfg.retry.send_retries + 1):
-        _ensure_idle_before_send(cfg, state)  # don't pile prompts into Cursor's queue
+        if _ensure_idle_before_send(cfg, state) != "ok":  # limit/logged_out → 让 run_task 换号
+            return False
         sr = cursor_ctl.send_prompt(cfg, prompt)
         if sr.get("ok"):
             state.log("sent", task=task.text[:40], attempt=attempt)
@@ -287,7 +310,10 @@ def _send_and_wait(cfg: Config, state: RunState, prompt: str, event_prefix: str 
     if not er.get("ok"):
         state.log(f"{event_prefix}_failed", reason=str(er.get("errors") or "not ready"))
         return "failed"
-    _ensure_idle_before_send(cfg, state)  # don't queue the plan prompt while the agent is busy
+    gate = _ensure_idle_before_send(cfg, state)  # don't queue the plan prompt while the agent is busy
+    if gate in ("limit", "logged_out"):
+        state.log(f"{event_prefix}_failed", reason=gate)
+        return "switch"  # 可恢复：_extend_or_switch 会换号后重试
     sr = cursor_ctl.send_prompt(cfg, prompt, submit=True)
     if not sr.get("ok"):
         reason = sr.get("error") or (sr.get("type") or {}).get("reason") or "send failed"
