@@ -1,0 +1,9 @@
+# npm 发布排除：运行产物与本地缓存不入包
+__pycache__/
+*.py[cod]
+runtime/
+node_modules/
+*.tgz
+.harness-profile/
+.reasonix/
+unattended/runstate/

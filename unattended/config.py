@@ -14,7 +14,14 @@ from typing import Any
 
 PKG_DIR = Path(__file__).resolve().parent
 HARNESS_DIR = PKG_DIR.parent
-DEFAULT_CONFIG = PKG_DIR / "config.json"
+# 仓库内默认配置（干净默认值，不含任何本机路径）
+DEFAULT_CONFIG = PKG_DIR / "config.default.json"
+
+# 用户配置（分发后外置，不入库）：%APPDATA%\cursor-harness\config.json
+# 加载顺序：default → 用户配置 → --config 显式指定 → CLI 覆盖
+_USER_APPDATA = Path(os.environ.get("APPDATA") or (Path.home() / "AppData" / "Roaming"))
+USER_CONFIG_DIR = _USER_APPDATA / "cursor-harness"
+USER_CONFIG = USER_CONFIG_DIR / "config.json"
 
 # Filled by loop.py before load when the user passes --project.
 PROJECT_OVERRIDE: str | None = None
@@ -90,6 +97,33 @@ def _num(d: dict[str, Any], key: str, default: float) -> float:
         return default
 
 
+def _detect_cursor_exe() -> str | None:
+    """Cursor.exe 自动检测（配置未指定时）：常见安装路径逐个探测。"""
+    pf = os.environ.get("PROGRAMFILES") or r"C:\Program Files"
+    la = os.environ.get("LOCALAPPDATA") or ""
+    candidates = [
+        Path(pf) / "cursor" / "Cursor.exe",
+        Path(la) / "Programs" / "cursor" / "Cursor.exe",
+        Path(la) / "Anysphere" / "Cursor.exe",
+    ]
+    for p in candidates:
+        if p.exists():
+            return str(p)
+    return None
+
+
+def _detect_assistant_exe() -> str | None:
+    """换号助手 exe 自动检测：扫描桌面/下载目录里的 CursorLoginAssistant-*.exe。"""
+    for d in (Path.home() / "Desktop", Path.home() / "Downloads"):
+        try:
+            hits = sorted(d.glob("CursorLoginAssistant-*.exe")) if d.exists() else []
+        except OSError:
+            hits = []
+        if hits:
+            return str(hits[-1])
+    return None
+
+
 @dataclass
 class CursorConfig:
     exe: Path
@@ -99,7 +133,9 @@ class CursorConfig:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "CursorConfig":
-        exe = _path(d, "exe") or Path(r"C:\Program Files\cursor\Cursor.exe")
+        exe = _path(d, "exe")
+        if exe is None:  # 未配置 → 自动检测（常见安装路径）→ 兜底 Program Files
+            exe = Path(_detect_cursor_exe() or r"C:\Program Files\cursor\Cursor.exe")
         profile = _path(d, "profile") or (Path(os.environ.get("APPDATA", "")) / "Cursor")
         return cls(
             exe=exe,
@@ -121,8 +157,11 @@ class LoginAssistantConfig:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "LoginAssistantConfig":
+        exe = _path(d, "exe")
+        if exe is None:  # 未配置 → 自动检测（桌面/下载目录扫描）
+            exe = Path(_detect_assistant_exe() or "")
         return cls(
-            exe=_path(d, "exe") or Path(),
+            exe=exe,
             refresh_template=_path(d, "refresh_template"),
             confirm_template=_path(d, "confirm_template"),
             confidence=_num(d, "confidence", 0.85),
@@ -219,7 +258,7 @@ class Config:
     timeouts: Timeouts = field(default_factory=Timeouts)
     retry: RetryConfig = field(default_factory=RetryConfig)
     ui: UiConfig = field(default_factory=UiConfig)
-    state_dir: Path = field(default_factory=lambda: PKG_DIR / "runstate")
+    state_dir: Path = field(default_factory=lambda: USER_CONFIG_DIR / "runstate")
     event_log: str = "events.jsonl"
     mode: str = "dry-run"  # dry-run | live | limit-sim
 
@@ -261,9 +300,9 @@ class Config:
     def from_dict(cls, d: dict[str, Any]) -> "Config":
         project = Path(
             _expand(str(PROJECT_OVERRIDE or d.get("project_dir") or ""))
-            or str(HARNESS_DIR)
+            or str(Path.cwd())  # 未指定项目 → 当前目录（与 curloop 的 cwd 语义一致）
         )
-        state_dir = _path(d, "state_dir") or (PKG_DIR / "runstate")
+        state_dir = _path(d, "state_dir") or (USER_CONFIG_DIR / "runstate")
         return cls(
             project_dir=project,
             todo_path=str(d.get("todo_path", "TODO.md")),
@@ -283,21 +322,35 @@ class Config:
 
     @classmethod
     def load(cls, path: Path = DEFAULT_CONFIG) -> "Config":
-        if path.exists():
-            with path.open("r", encoding="utf-8") as fh:
-                data = json.load(fh)
-        else:
-            data = {}
+        """合并加载配置：仓库默认 config.default.json → %APPDATA% 用户配置 → --config 显式指定。
+
+        - 默认配置不含任何本机路径（Cursor/换号助手路径由自动检测补齐）；
+        - 用户配置覆盖默认（分发后写 %APPDATA%\\cursor-harness\\config.json）；
+        - `--config FILE`（与默认不同时）优先级最高；
+        - CLI 覆盖（--project / --mode）在 loop.py 里 load 之后应用。
+        """
+        data: dict[str, Any] = {}
+        sources: list[Path] = [DEFAULT_CONFIG, USER_CONFIG]
+        if path is not None and path.resolve() != DEFAULT_CONFIG.resolve():
+            sources.append(path)
+        for src in sources:
+            if src is None or not src.exists():
+                continue
+            try:
+                with src.open("r", encoding="utf-8") as fh:
+                    data.update(json.load(fh))
+            except Exception as exc:  # noqa: BLE001  （用户配置损坏不应致命）
+                print(f"[config] 警告：读取 {src} 失败：{exc}，已跳过")
         return cls.from_dict(data)
 
     def validate(self) -> list[str]:
         """Return a list of problems (empty = OK). Does not touch processes/GUI."""
         problems: list[str] = []
-        if not self.cursor.exe.exists():
+        if not self.cursor.exe or not self.cursor.exe.exists():
             problems.append(f"cursor.exe 不存在: {self.cursor.exe}")
         if not self.cursor.profile.exists():
             problems.append(f"cursor profile 目录不存在: {self.cursor.profile}")
-        if not self.login_assistant.exe.exists():
+        if not self.login_assistant.exe or not self.login_assistant.exe.exists():
             problems.append(f"login_assistant.exe 不存在: {self.login_assistant.exe}")
         for name, p in (
             ("refresh_template", self.login_assistant.refresh_template),

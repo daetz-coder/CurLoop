@@ -6,7 +6,26 @@
 > ⚠️ 自动轮号绕过用量限制违反 Cursor 的 ToS，账号存在风控/封禁风险。本工具默认 `dry-run`，
 > 所有会真实换号的操作都要你显式指定 `--mode live / limit-sim`，且**必须以管理员运行**。
 
-## 快速开始（推荐：单文件一键）
+## 快速开始
+
+### 方式一（推荐）：npm 分发
+
+```bash
+# 安装（postinstall 自动下载嵌入式 Python 3.12 + pip 装依赖；国内可设 CURSOR_HARNESS_PYTHON_URL 换镜像）
+npm install          # 仓库根
+npm link             # 注册全局命令 cursor-harness / curloop
+
+cursor-harness --check-config          # 配置自检（只读）
+curloop run --mode live                # 无人值守运行（当前目录 = 目标项目，需管理员）
+curloop status / stats / watch         # 状态查看
+npm pack                               # 打发布包（files 白名单，不含 runtime/ 等运行产物）
+```
+
+> 配置外置：仓库内 `config.default.json` 是干净默认（无本机路径）；你的本机配置写在
+> `%APPDATA%\cursor-harness\config.json`（Cursor.exe / 换号助手 exe 未配置时会自动检测常见路径）；
+> 运行状态默认存 `%APPDATA%\cursor-harness\runstate`。
+
+### 方式二：单文件一键（本地开发）
 
 把 `unattended\run_here.bat` **复制到目标项目根目录**，双击（UAC 点"是"）。它会自动：
 

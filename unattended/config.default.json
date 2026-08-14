@@ -1,19 +1,14 @@
 {
-  "project_dir": "D:\\2026AppDev\\RAGLab",
   "todo_path": "TODO.md",
   "final_goal_file": "FinalGoal.md",
   "auto_plan_todo": true,
   "git_commit_after_task": true,
   "cursor": {
-    "exe": "C:\\Program Files\\cursor\\Cursor.exe",
     "profile": "%APPDATA%\\Cursor",
     "port": 9333,
     "remote_allow_origins": "*"
   },
   "login_assistant": {
-    "exe": "C:\\Users\\ASUS\\Desktop\\CursorLoginAssistant-836.exe",
-    "refresh_template": "C:\\Users\\ASUS\\Desktop\\refresh_cursor.png",
-    "confirm_template": "C:\\Users\\ASUS\\Desktop\\confirm_ok.png",
     "confidence": 0.85,
     "launch_wait_s": 25.0,
     "confirm_wait_s": 12.0,
@@ -78,7 +73,5 @@
   "ui": {
     "periodic_status_s": 180
   },
-  "state_dir": "D:\\2026AppDev\\CursorHarness\\unattended\\runstate",
-  "event_log": "events.jsonl",
   "mode": "dry-run"
 }

@@ -58,6 +58,27 @@ python verify_conversation.py                                     # send HARNESS
 python verify_conversation_verdict.py                             # re-classify last conversation report
 ```
 
+## npm 分发（2026-08 重构：Python 核心不动，外壳层用 npm 分发）
+
+项目本体是 Python（仅 Windows），npm 只做**分发壳**：`postinstall` 自动下载嵌入式 Python
+（python-build-standalone 3.12，`<pkg>/runtime/python/`，gitignore 不入库）并 `pip install -r requirements.txt`，
+`bin/*.js` 是 Node shim——保持当前 cwd、`PYTHONPATH` 指向包根、透传参数/stdio/退出码。
+
+```bash
+npm install                 # 仓库根：postinstall 下载嵌入式 Python + 装依赖（可设 CURSOR_HARNESS_PYTHON_URL 换镜像）
+npm link                    # 注册全局命令（本地验证）
+cursor-harness --check-config   # 等价 python -m unattended.loop
+curloop status                  # 等价 python harness.py（cwd = 目标项目）
+npm pack                    # 打发布包（files 白名单，排除 runtime/、__pycache__、runstate）
+```
+
+- 关键文件：`package.json`（bin: cursor-harness/curloop，os: win32，files 白名单）、`bin/_common.js`（shim 公共逻辑）、
+  `bin/cursor-harness.js`/`bin/curloop.js`、`scripts/install.js`（下载+解压嵌入式 Python，tar npm 包解压，内容上移一层）、`requirements.txt`。
+- 嵌入式 Python 锁定版本 `3.12.13`（python-build-standalone release `20260807`，install_only_stripped 约 21MB）。
+- **`*.bat` 不进 npm 包**（GBK/CRLF 本地开发仍可用），分发入口以 bin 命令为准。
+- 配置与运行状态外置：默认 `config.default.json` + `%APPDATA%\cursor-harness\config.json`（用户覆盖）+ 自动检测路径，
+  runstate 默认 `%APPDATA%\cursor-harness\runstate`。详见下方 `config.py` 条目。
+
 ## Architecture
 
 Cursor is never "driven" natively — **everything goes through CDP**: launch Cursor with `--remote-debugging-port=9333 --user-data-dir=<real profile>`, then `Runtime.evaluate` injected JS snippets against the workbench page. Reuse the CDP layer as a library (parent-dir import) rather than duplicating it.
@@ -74,7 +95,7 @@ Cursor is never "driven" natively — **everything goes through CDP**: launch Cu
   - `todo_queue.py` — `- [ ]`/`- [x]`/`- [X]`/`- [-]` checkbox parsing → `TodoTask` queue + in-place `[x]` writeback preserving CRLF/indent. `mark_done` writes bytes to preserve line endings.
   - `run_state.py` — `runstate/snapshot.json` (crash resume) + `runstate/events.jsonl` (append-only event log). `load` merges the snapshot with the current TODO.md (mark done if now checked, append brand-new unchecked items) **and resets `skipped` tasks to `pending`** — otherwise a task skipped by a failed account switch stays `skipped` in the snapshot, `next_task()` sees an empty queue and the whole run exits immediately ("fake done").
   - **runstate 按 (项目, git 分支) 隔离**（移植自 master 7cde95b）：key = `runstate/<slug>@<分支名>/`（`config.current_branch` 读目标项目 `.git/HEAD` 零子进程；detached→短 hash、linked worktree→gitdir 解析、非 git→default）。`config.project_state_dir` 与 `observer._state_key` 必须保持同源（都调 `current_branch`），分支切换不混队列/换号预算/统计/事件线；`migrate_legacy` 旧全局日志归入 `@default` 桶，旧 `runstate/<name>/` 目录不受影响。
-  - `config.py` / `config.json` — typed runtime config (paths, detection keywords, timeouts, retry budget). `--project` CLI override sets the module global `PROJECT_OVERRIDE` before load.
+  - `config.py` / `config.default.json` — typed runtime config (paths, detection keywords, timeouts, retry budget). **npm 分发后配置外置**：仓库内 `config.default.json` 是干净默认（不含任何本机路径），`Config.load()` 按 默认配置 → `%APPDATA%\cursor-harness\config.json`（用户配置，覆盖默认）→ `--config FILE`（最高优先）合并；Cursor.exe 与换号助手 exe 未配置时自动检测（`_detect_cursor_exe`/`_detect_assistant_exe`）。`--project` CLI override sets the module global `PROJECT_OVERRIDE` before load. runstate 默认外置到 `%APPDATA%\cursor-harness\runstate`（原 `unattended/runstate` 兜底保留在旧配置里）。
   - `assistant_probe.py` — elevated probe: relaunch 换号助手 with `--remote-debugging-port=9355` and dump its DOM to `runstate/assistant_probe.json`. `win_ocr.ps1` — Windows OCR helper used for screenshot text extraction.
 
 ## Key invariants & gotchas

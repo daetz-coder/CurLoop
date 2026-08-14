@@ -1,0 +1,10 @@
+# cursor-harness Python 依赖（npm postinstall 时 pip install 安装到嵌入式 Python）
+# 核心：CDP WebSocket 通信 + 换号助手模板匹配点击 + REPL 补全
+websockets>=12.0
+pyautogui>=0.9.54
+prompt_toolkit>=3.0.36
+
+# 可选（pywinauto UIA fallback；未安装时自动降级为仅 pyautogui 模板路径，可忽略）：
+# pywinauto>=0.6.8
+# comtypes>=1.4.0
+# wmi>=1.5.1
