@@ -28,6 +28,11 @@ def _expand(s: str) -> str:
     return os.path.expandvars(s)
 
 
+# current_branch 缓存：.git/HEAD 内容基本不变，按 (path, mtime_ns) 命中，
+# 避免周期状态块/status/watch 反复读文件。
+_branch_cache: dict[str, tuple[int, str]] = {}
+
+
 def current_branch(project_dir: Path) -> str:
     """当前 git 分支名（读 `.git/HEAD`，零子进程；runstate 按分支隔离的 key 来源）。
 
@@ -50,13 +55,21 @@ def current_branch(project_dir: Path) -> str:
         pass
     for h in candidates:
         try:
+            mtime = h.stat().st_mtime_ns
+            hit = _branch_cache.get(str(h))
+            if hit is not None and hit[0] == mtime:
+                return hit[1]
             text = h.read_text(encoding="utf-8", errors="replace").strip()
         except Exception:  # noqa: BLE001
             continue
         if text.startswith("ref: refs/heads/"):
-            return text[len("ref: refs/heads/"):].strip()
-        if text and not text.startswith("ref:"):
-            return text[:7]  # detached HEAD: 短 commit hash
+            branch = text[len("ref: refs/heads/"):].strip()
+        elif text and not text.startswith("ref:"):
+            branch = text[:7]  # detached HEAD: 短 commit hash
+        else:
+            continue
+        _branch_cache[str(h)] = (mtime, branch)
+        return branch
     return "default"
 
 
