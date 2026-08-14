@@ -41,7 +41,11 @@ class TodoTask:
             f"项目：{project_dir}\n"
             f"请完成 TODO：{self.text}\n"
             f"（接手现有工作继续做，直到任务真正完成；中途不要停。\n"
-            f"完成后请 git add -A 并 git commit 提交你的改动，commit message 简要描述本任务。）"
+            f"完成后请 git add -A 并 git commit 提交你的改动，commit message 简要描述本任务。\n"
+            f"完成本任务的过程中，如果实际进展表明还有值得继续的下一步（如新发现的问题、"
+            f"拆出的子任务、下一步实现计划），请按 `- [ ] 任务描述` 格式追加到 TODO.md 末尾"
+            f"（每行一项、只追加确有必要的，不要重复已有任务；没有就跳过这一条），"
+            f"无人值守循环会读取 TODO.md 自动继续执行新任务。）"
         )
 
     def to_dict(self) -> dict[str, Any]:
