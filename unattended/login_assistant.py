@@ -23,6 +23,21 @@ from .config import Config
 user32 = ctypes.windll.user32
 kernel32 = ctypes.windll.kernel32
 
+# z-order 置顶常量：HWND_TOPMOST=-1 / HWND_NOTOPMOST=-2。
+# 换号期间把助手窗口置顶，防止全屏/最大化的终端窗口遮挡（Windows 前台锁会拒绝
+# 后台进程 SetForegroundWindow 抢前台，但 HWND_TOPMOST 是显示层级、不依赖前台）。
+_HWND_TOPMOST = -1
+_HWND_NOTOPMOST = -2
+_SWP_NOSIZE = 0x0001
+_SWP_NOMOVE = 0x0002
+_SWP_NOACTIVATE = 0x0010
+
+
+def _set_topmost(hwnd: int, topmost: bool) -> None:
+    """置顶/取消置顶窗口（不移动、不改变大小、不抢前台）。"""
+    h = _HWND_TOPMOST if topmost else _HWND_NOTOPMOST
+    user32.SetWindowPos(hwnd, h, 0, 0, 0, 0, _SWP_NOMOVE | _SWP_NOSIZE | _SWP_NOACTIVATE)
+
 
 def _dpi_aware() -> None:
     try:
@@ -128,7 +143,14 @@ def move_to_primary_and_foreground(hwnd: int) -> None:
     if not is_on_primary(x, y, w, h):
         user32.SetWindowPos(hwnd, 0, 100, 100, w, h, 0x0040)  # SWP_SHOWWINDOW
         time.sleep(0.4)
-    user32.ShowWindow(hwnd, 5)  # SW_SHOW
+    # SW_RESTORE=9：还原最小化窗口（SW_SHOW=5 对最小化窗口无效，会导致
+    # 窗口保持最小化 → 屏幕上没有内容 → 模板匹配必然失败）。
+    user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+    time.sleep(0.3)
+    # 置顶：防止最大化/全屏终端遮挡助手窗口导致模板匹配失败。TOPMOST 是显示
+    # 层级、不依赖前台（SetForegroundWindow 仍尝试，尽力激活）。
+    _set_topmost(hwnd, True)
+    time.sleep(0.5)  # 置顶后等窗口重绘完成，避免截到半绘制画面
     user32.SetForegroundWindow(hwnd)
 
 
@@ -324,6 +346,15 @@ def refresh_account(cfg: Config, dry_run: bool = False) -> dict[str, Any]:
     result["steps"].append({"step": "refresh", **refresh})
 
     # 4. Confirm dialog.
+    # 点击刷新后确认模态框是独立的顶层窗口（Qt QDialog），主窗口置顶不保证它
+    # 可见；等它弹出后把助手进程的所有窗口都置顶，防止被最大化终端遮挡。
+    if not dry_run:
+        time.sleep(1.5)
+        try:
+            for w in find_windows_for_exe(la.exe):
+                _set_topmost(w, True)
+        except Exception:  # noqa: BLE001
+            pass
     confirm: dict[str, Any] = {"ok": False, "reason": "no confirm template configured"}
     if la.confirm_template and la.confirm_template.exists():
         confirm = locate_template(la.confirm_template, la.confidence, timeout_s=la.confirm_wait_s, poll=0.5)
@@ -342,6 +373,13 @@ def refresh_account(cfg: Config, dry_run: bool = False) -> dict[str, Any]:
     if la.close_after_refresh and not dry_run:
         closed = close_assistant(la.exe)
         result["steps"].append({"step": "close", **closed})
+    elif not dry_run:
+        # 助手常驻（close_after_refresh=false）时不解除置顶会一直盖着屏幕；
+        # 换号动作已完成，token 变化检测与窗口层级无关，解除置顶安全。
+        try:
+            _set_topmost(hwnd, False)
+        except Exception:  # noqa: BLE001
+            pass
     return result
 
 
