@@ -579,6 +579,17 @@ def run(cfg: Config) -> int:
                 outcome = "skipped"
             if outcome == "done":
                 _git_commit(cfg, task)
+                # 任务完成后重新加载 TODO.md：吸收 Agent 按提示词追加的新任务
+                # （执行中生成的计划/子任务），让队列随实际进展动态更新，而
+                # 不是等队列空了才走扩展。没有新任务则沿用当前 state。
+                fresh = _reload_queue(cfg, state, "task_done")
+                if fresh is not None:
+                    # load() 从 snapshot 恢复预算/冷却；同步当前内存值再保存，
+                    # 避免覆盖本次 run 已累计的换号预算。
+                    fresh.switches_used = state.switches_used
+                    fresh.cooldown_until = state.cooldown_until
+                    state = fresh
+                    state.save()
             if outcome == "abort":
                 state.log("run_abort")
                 state.save()
