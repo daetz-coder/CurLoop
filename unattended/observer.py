@@ -92,42 +92,6 @@ def short_detail(e: dict) -> str:
     return ""
 
 
-def migrate_legacy() -> dict:
-    """Split the old global runstate/events.jsonl into per-project dirs.
-
-    Events are bucketed by the `project` field of each run_start; events after
-    a run_start inherit that bucket. The old file is renamed to .legacy.jsonl.
-    Returns {"projects": n, "events": n, "legacy": path}.
-    """
-    legacy = RUNSTATE / "events.jsonl"
-    if not legacy.exists():
-        return {"projects": 0, "events": 0, "legacy": None}
-    buckets: dict[str, list[str]] = {}
-    current: str | None = None
-    total = 0
-    for line in legacy.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            e = json.loads(line)
-        except Exception:
-            continue
-        total += 1
-        if e.get("event") == "run_start" and e.get("project"):
-            # 旧全局日志无分支信息：归入 default 桶（= 非 git 项目的 key）
-            current = _slug(f"{Path(e['project']).name}@default")
-        if current:
-            buckets.setdefault(current, []).append(line)
-    for slug, lines in buckets.items():
-        p = RUNSTATE / slug / "events.jsonl"
-        p.parent.mkdir(parents=True, exist_ok=True)
-        with p.open("a", encoding="utf-8") as fh:
-            fh.write("\n".join(lines) + "\n")
-    renamed = legacy.rename(legacy.with_suffix(".legacy.jsonl"))
-    return {"projects": len(buckets), "events": total, "legacy": str(renamed)}
-
-
 def build_status(project: str | None = None) -> dict:
     """Compute stats + recent events + queue from the runstate files.
 
