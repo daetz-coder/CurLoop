@@ -27,7 +27,14 @@ function runPython(entryArgs, cmdName) {
   }
   const child = spawn(python, entryArgs, {
     stdio: 'inherit',
-    env: { ...process.env, PYTHONPATH: PKG_ROOT, PYTHONUTF8: '1' },
+    env: {
+      ...process.env,
+      PYTHONPATH: PKG_ROOT,
+      // 注意：不要设置 PYTHONUTF8=1 —— 它会强制 subprocess(text=True) 用 utf-8 解码
+      // Windows 子进程（tasklist/powershell）的 GBK 输出，导致 UnicodeDecodeError，
+      // 且 reader 线程崩溃后 out.stdout 变 None 触发 None+str 崩溃。
+      // 控制台 UTF-8 由 loop._setup_console()（SetConsoleOutputCP(65001)）负责。
+    },
   });
   child.on('exit', (code, signal) => {
     if (signal) {

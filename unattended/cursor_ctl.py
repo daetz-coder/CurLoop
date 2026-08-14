@@ -87,6 +87,7 @@ Get-CimInstance Win32_Process -Filter "Name = 'Cursor.exe'" | ForEach-Object {
         ["powershell", "-NoProfile", "-Command", ps],
         capture_output=True,
         text=True,
+        errors="replace",  # Windows 子进程输出为 GBK，防御解码崩溃
         check=False,
     )
     time.sleep(wait_s)

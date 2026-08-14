@@ -31,7 +31,7 @@ Get-CimInstance Win32_Process -Filter "Name = 'CursorLoginAssistant-836.exe'" | 
   try { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue } catch {}
 }
 """
-    subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, check=False)
+    subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, errors="replace", check=False)
     time.sleep(2)
 
 

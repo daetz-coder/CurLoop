@@ -1,6 +1,6 @@
 {
   "name": "curloop",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "无人值守 Cursor 编码循环：CDP 驱动真实 Cursor，检测用量/登录限制自动换号，按目标项目 TODO.md 队列无人值守执行（仅 Windows）。",
   "keywords": [
     "cursor",

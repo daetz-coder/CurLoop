@@ -76,9 +76,10 @@ def is_running(exe_name: str) -> bool:
         ["tasklist", "/FI", f"IMAGENAME eq {exe_name}", "/NH"],
         capture_output=True,
         text=True,
+        errors="replace",  # tasklist 表头在中文 Windows 是 GBK；防御解码崩溃
         check=False,
     )
-    return stem in (out.stdout + out.stderr).lower()
+    return stem in ((out.stdout or "") + (out.stderr or "")).lower()
 
 
 # ---------------------------------------------------------------- windows ----
@@ -468,6 +469,7 @@ def close_assistant(exe_path: Path, timeout_s: float = 5.0) -> dict[str, Any]:
             ["powershell", "-NoProfile", "-Command", ps],
             capture_output=True,
             text=True,
+            errors="replace",  # Windows 子进程输出为 GBK，防御解码崩溃
             check=False,
         )
         time.sleep(1.0)
