@@ -1,7 +1,28 @@
 {
   "name": "curloop",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "无人值守 Cursor 编码循环：CDP 驱动真实 Cursor，检测用量/登录限制自动换号，按目标项目 TODO.md 队列无人值守执行（仅 Windows）。",
+  "keywords": [
+    "cursor",
+    "cdp",
+    "automation",
+    "unattended",
+    "cli",
+    "ai-coding",
+    "agent",
+    "windows",
+    "todo"
+  ],
+  "author": "deatz <3446914219@qq.com>",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/daetz-coder/CurLoop.git"
+  },
+  "homepage": "https://github.com/daetz-coder/CurLoop",
+  "bugs": {
+    "url": "https://github.com/daetz-coder/CurLoop/issues"
+  },
   "os": [
     "win32"
   ],
