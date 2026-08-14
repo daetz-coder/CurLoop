@@ -92,6 +92,50 @@ def short_detail(e: dict) -> str:
     return ""
 
 
+def _todo_aligned_queue(project: str | None, snap: dict) -> list[dict]:
+    """状态展示的队列与 RunState.load 的 done 过滤对齐。
+
+    快照里的任务若在当前 TODO.md 已勾选（[x]），标记 done——否则状态块显示
+    pending/running 而真实内存队列在 load() 里已把它们过滤（误导：看起来有
+    任务可跑，实际队列空）。读最近 run_start 事件的 todo 字段定位 TODO.md；
+    无 todo 信息或文件缺失时原样返回快照队列。
+    """
+    raw = snap.get("queue", [])
+    if not raw:
+        return []
+    todo: Path | None = None
+    for e in load_events(project):
+        if e.get("event") == "run_start" and e.get("todo"):
+            todo = Path(e["todo"])
+            break
+    if not todo or not todo.exists():
+        return [
+            {
+                "text": t.get("text", "")[:70],
+                "status": t.get("status"),
+                "retries": t.get("retries", 0),
+                "switch_reason": t.get("switch_reason"),
+            }
+            for t in raw
+        ]
+    from .todo_queue import _norm, parse_all
+
+    done_norms = {t.normalized() for t in parse_all(todo) if t.done}
+    out = []
+    for t in raw:
+        full = t.get("text", "")
+        item = {
+            "text": full[:70],
+            "status": t.get("status"),
+            "retries": t.get("retries", 0),
+            "switch_reason": t.get("switch_reason"),
+        }
+        if item["status"] != "done" and _norm(full) in done_norms:
+            item["status"] = "done"
+        out.append(item)
+    return out
+
+
 def build_status(project: str | None = None) -> dict:
     """Compute stats + recent events + queue from the runstate files.
 
@@ -145,15 +189,7 @@ def build_status(project: str | None = None) -> dict:
         {"t": fmt_ts(e.get("ts", 0)), "event": e.get("event"), "detail": short_detail(e)}
         for e in reversed(evs[-30:])
     ]
-    queue = [
-        {
-            "text": t.get("text", "")[:70],
-            "status": t.get("status"),
-            "retries": t.get("retries", 0),
-            "switch_reason": t.get("switch_reason"),
-        }
-        for t in snap.get("queue", [])
-    ]
+    queue = _todo_aligned_queue(project, snap)
     return {
         "stats": st, "recent": recent, "queue": queue,
         "running": running, "now": fmt_ts(time.time()),
