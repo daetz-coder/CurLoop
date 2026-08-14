@@ -20,6 +20,8 @@ from typing import Any
 
 from . import config as config_mod
 from . import cursor_ctl
+from . import observer
+from . import ui
 from .config import Config
 from .detection import CompletionTracker, REPLY_JS
 from .login_assistant import refresh_account
@@ -451,8 +453,22 @@ def run(cfg: Config) -> int:
     sim: dict[str, bool] = {"forced": False}  # limit-sim: force the switch once
     extend_used = 0  # level-1 light auto-extend refills
     goal_extend_used = 0  # level-2 FinalGoal re-plans
+    # 周期状态块：CLI 模式下跑 loop 的终端定时出现状态面板（复用 ui.status_render，
+    # 非全屏、不遮挡换号助手窗口）。0 = 关闭。
+    periodic = cfg.ui.periodic_status_s
+    last_status = 0.0
+    ui.init()
     try:
         while True:
+            if periodic > 0:
+                now = time.monotonic()
+                if now - last_status >= periodic:
+                    last_status = now
+                    try:
+                        print(ui.status_render(observer.build_status(project=str(cfg.project_dir))))
+                        print()
+                    except Exception:  # noqa: BLE001  状态面板异常不影响主循环
+                        pass
             task = state.next_task()
             if task is None:
                 # Queue empty. TODO.md missing (first run / deleted) -> always

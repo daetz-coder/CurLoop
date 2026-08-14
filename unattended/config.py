@@ -151,6 +151,17 @@ class RetryConfig:
 
 
 @dataclass
+class UiConfig:
+    """终端可视化配置（CLI 模式；非全屏状态块，不遮挡换号助手窗口）。"""
+
+    periodic_status_s: float = 30.0  # loop 运行中每 N 秒打印一次状态块；0 = 关闭
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "UiConfig":
+        return cls(periodic_status_s=_num(d, "periodic_status_s", 30.0))
+
+
+@dataclass
 class Config:
     project_dir: Path
     todo_path: str = "TODO.md"
@@ -162,6 +173,7 @@ class Config:
     detection: DetectionConfig = field(default_factory=DetectionConfig)
     timeouts: Timeouts = field(default_factory=Timeouts)
     retry: RetryConfig = field(default_factory=RetryConfig)
+    ui: UiConfig = field(default_factory=UiConfig)
     state_dir: Path = field(default_factory=lambda: PKG_DIR / "runstate")
     event_log: str = "events.jsonl"
     mode: str = "dry-run"  # dry-run | live | limit-sim
@@ -213,6 +225,7 @@ class Config:
             detection=DetectionConfig.from_dict(d.get("detection") or {}),
             timeouts=Timeouts.from_dict(d.get("timeouts") or {}),
             retry=RetryConfig.from_dict(d.get("retry") or {}),
+            ui=UiConfig.from_dict(d.get("ui") or {}),
             state_dir=state_dir,
             event_log=str(d.get("event_log", "events.jsonl")),
             mode=str(d.get("mode", "dry-run")),
