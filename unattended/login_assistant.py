@@ -12,6 +12,7 @@ clicks or launches.
 from __future__ import annotations
 
 import ctypes
+import os
 import subprocess
 import time
 from ctypes import wintypes
@@ -19,6 +20,19 @@ from pathlib import Path
 from typing import Any
 
 from .config import Config
+
+# comtypes typelib 生成目录默认是系统 site-packages（`...\comtypes\gen\`），
+# 非管理员无写权限 → pywinauto UIA fallback 一 import 就 PermissionError /
+# "Typelib different than module"。重定向到用户可写目录（%LOCALAPPDATA%\comtypes_gen），
+# 首次使用自动生成，后续复用缓存。必须在 import pywinauto 之前生效。
+try:
+    import comtypes.client  # noqa: E402
+
+    _gen_dir = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "comtypes_gen"
+    _gen_dir.mkdir(parents=True, exist_ok=True)
+    comtypes.client.gen_dir = str(_gen_dir)
+except Exception:  # noqa: BLE001  (comtypes 缺失等：UIA fallback 自然降级)
+    pass
 
 user32 = ctypes.windll.user32
 kernel32 = ctypes.windll.kernel32
