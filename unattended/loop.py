@@ -337,8 +337,12 @@ def _send_and_wait(cfg: Config, state: RunState, prompt: str, event_prefix: str 
         if st in ("limit", "logged_out"):
             state.log(f"{event_prefix}_failed", reason=st)
             return "switch"  # 可恢复：调用方换号后重试
-        state.log(f"{event_prefix}_failed", reason=st)
-        return "failed"
+        if st in ("no_page", "cdp_error", "hard_timeout"):
+            state.log(f"{event_prefix}_failed", reason=st)
+            return "failed"
+        # busy / waiting：Agent 正在生成扩展/规划回复，继续等（CompletionTracker
+        # 负责最终判定；卡死由 hard_timeout 兜底，不会无限等）。此前把 busy
+        # 误判为失败导致扩展在 Agent 回复中途就放弃（extend_failed busy）。
 
 
 def _extend_or_switch(cfg: Config, state: RunState, prompt: str, event_prefix: str) -> bool:
