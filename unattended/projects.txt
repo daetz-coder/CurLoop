@@ -1,5 +1,0 @@
-# 项目列表：每行一个项目根目录（# 开头为注释）
-# 用记事本编辑本文件，新增/删除项目行即可
-D:\2026AppDev\RAGLab
-D:\2026AppDev\Electrical Toolbox
-D:\2026W-MSTC\W-MSTC

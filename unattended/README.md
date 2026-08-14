@@ -32,7 +32,7 @@ harness.bat run --mode live          # 或双击 harness.bat（需带参数/或�
 ```
 
 > `harness.py` 不切换工作目录：在哪个目录运行，就对哪个目录执行 Harness。
-> 也可用 `unattended\pick_project.bat`（projects.txt 菜单选择项目）或 `unattended\run_unattended.bat --here`。
+> 也可用 `unattended\run_unattended.bat --here`。
 
 ## 使用
 
