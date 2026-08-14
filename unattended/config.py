@@ -176,7 +176,7 @@ class Timeouts:
 class RetryConfig:
     hang_retries_per_task: int = 1
     send_retries: int = 2
-    max_total_account_switches_per_run: int = 5
+    max_total_account_switches_per_run: int = 0  # 0 = 不限换号次数（每 run 独立预算）
     cooldown_between_switches_s: float = 30.0
     # auto-extend: when the TODO queue empties, ask the agent to plan new tasks
     # into TODO.md and keep going (bounded by auto_extend_max_iterations).
@@ -188,7 +188,7 @@ class RetryConfig:
         return cls(
             hang_retries_per_task=int(_num(d, "hang_retries_per_task", 1)),
             send_retries=int(_num(d, "send_retries", 2)),
-            max_total_account_switches_per_run=int(_num(d, "max_total_account_switches_per_run", 5)),
+            max_total_account_switches_per_run=int(_num(d, "max_total_account_switches_per_run", 0)),
             cooldown_between_switches_s=_num(d, "cooldown_between_switches_s", 30.0),
             auto_extend=bool(d.get("auto_extend", False)),
             auto_extend_max_iterations=int(_num(d, "auto_extend_max_iterations", 20)),

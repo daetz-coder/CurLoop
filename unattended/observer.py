@@ -152,9 +152,15 @@ def build_status(project: str | None = None) -> dict:
     for e in evs:
         ev = e.get("event")
         if ev == "run_start":
+            # 每次 run 独立统计：新一轮 run 开始重置所有计数（换号/对话/完成/
+            # 账号），不跨 run 累计——用户要求每次开启对话的统计互不混用。
+            st = {
+                "switches": 0, "switch_ok": 0, "switch_failed": 0, "emails": [],
+                "sends": 0, "tasks_done": 0, "tasks_start": 0, "extend_ok": 0,
+                "run_start": None, "run_end": None, "run_end_kind": None,
+                "mode": None, "project": None,
+            }
             st["run_start"] = e.get("ts", 0)
-            st["run_end"] = None  # 新一轮 run 开始，清除上一轮的结束标记
-            st["run_end_kind"] = None
             st["mode"] = e.get("mode")
             st["project"] = e.get("project")
         elif ev in ("interrupt", "run_done", "run_abort"):

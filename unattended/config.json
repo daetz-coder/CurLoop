@@ -70,7 +70,7 @@
   "retry": {
     "hang_retries_per_task": 1,
     "send_retries": 2,
-    "max_total_account_switches_per_run": 5,
+    "max_total_account_switches_per_run": 0,
     "cooldown_between_switches_s": 30,
     "auto_extend": true,
     "auto_extend_max_iterations": 20

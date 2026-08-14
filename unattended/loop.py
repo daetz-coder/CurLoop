@@ -121,7 +121,8 @@ def cmd_inject_limit_node(cfg: Config) -> int:
 
 # ------------------------------------------------------------------ helpers ----
 def _can_switch(cfg: Config, state: RunState) -> bool:
-    return state.switches_used < cfg.retry.max_total_account_switches_per_run
+    m = cfg.retry.max_total_account_switches_per_run
+    return m <= 0 or state.switches_used < m  # <=0 = 不限次数（默认）
 
 
 def _skip(state: RunState, task: TodoTask, reason: str) -> str:
@@ -562,6 +563,7 @@ def run(cfg: Config) -> int:
     sim: dict[str, bool] = {"forced": False}  # limit-sim: force the switch once
     extend_used = 0  # level-1 light auto-extend refills
     goal_extend_used = 0  # level-2 FinalGoal re-plans
+    state.switches_used = 0  # 每次 run 独立换号预算（不跨 run 累计）
     ui.init()
     try:
         while True:
