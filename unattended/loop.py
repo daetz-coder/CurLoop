@@ -259,19 +259,23 @@ def _read_final_goal(cfg: Config) -> str:
         return ""
 
 
-def _send_and_wait(cfg: Config, state: RunState, prompt: str, event_prefix: str = "extend") -> bool:
-    """ensure_ready -> send prompt -> wait for the agent to finish. True on done."""
+def _send_and_wait(cfg: Config, state: RunState, prompt: str, event_prefix: str = "extend") -> str:
+    """ensure_ready -> send -> wait for the agent to finish.
+
+    Returns "ok"（回复完成）| "switch"（撞 limit/logged_out，可换号恢复）
+    | "failed"（其他不可恢复失败）。与任务路径 _wait_reply 的语义对齐。
+    """
     state.log(f"{event_prefix}_start", project=str(cfg.project_dir))
     er = cursor_ctl.ensure_ready(cfg, cfg.project_dir, relaunch=True)
     if not er.get("ok"):
         state.log(f"{event_prefix}_failed", reason=str(er.get("errors") or "not ready"))
-        return False
+        return "failed"
     _ensure_idle_before_send(cfg)  # don't queue the plan prompt while the agent is busy
     sr = cursor_ctl.send_prompt(cfg, prompt, submit=True)
     if not sr.get("ok"):
         reason = sr.get("error") or (sr.get("type") or {}).get("reason") or "send failed"
         state.log(f"{event_prefix}_failed", reason=reason)
-        return False
+        return "failed"
     state.log(f"{event_prefix}_sent")
     tracker = CompletionTracker(
         stable_polls=cfg.timeouts.completion_stable_polls,
@@ -282,13 +286,43 @@ def _send_and_wait(cfg: Config, state: RunState, prompt: str, event_prefix: str 
     interval = cfg.timeouts.completion_poll_interval_s
     while True:
         time.sleep(interval)
+        _maybe_print_status(cfg)  # 扩展/规划等待期间也刷新周期状态块
         r = cursor_ctl.poll_reply(cfg, tracker, prev)
         st = r["state"]
         if st == "done":
-            return True
-        if st in ("limit", "logged_out", "no_page", "cdp_error", "hard_timeout"):
+            return "ok"
+        if st in ("limit", "logged_out"):
             state.log(f"{event_prefix}_failed", reason=st)
+            return "switch"  # 可恢复：调用方换号后重试
+        state.log(f"{event_prefix}_failed", reason=st)
+        return "failed"
+
+
+def _extend_or_switch(cfg: Config, state: RunState, prompt: str, event_prefix: str) -> bool:
+    """扩展/规划等待：撞 limit/logged_out 时换号后重试，而不是当作"无新任务"放弃。
+
+    之前 _send_and_wait 对 limit 只记 extend_failed 返回 False，队列空 + 撞 limit
+    时主循环会直接 run_done 退出（"Get Cursor Pro" 提示后不换号就是死因）。此处
+    与任务路径一致：limit/logged_out 视为可恢复，受 _can_switch 预算约束换号重试。
+    返回 True = 本次发送最终完成（队列是否新增由调用方 _reload_queue 决定）。
+    """
+    for attempt in range(cfg.retry.send_retries + 1):
+        r = _send_and_wait(cfg, state, prompt, event_prefix)
+        if r == "ok":
+            return True
+        if r != "switch":
             return False
+        if not _can_switch(cfg, state):
+            state.log(f"{event_prefix}_failed", reason="switch budget exhausted")
+            return False
+        # 扩展/规划路径没有真实任务，用占位 TodoTask 记录本次换号用途
+        dummy = TodoTask(text=f"{event_prefix} (queue empty)", line=0)
+        if not _do_switch(cfg, state, dummy):
+            state.log(f"{event_prefix}_failed", reason="switch_failed")
+            return False
+        state.log(f"{event_prefix}_switch_retry", attempt=attempt + 1)
+    state.log(f"{event_prefix}_failed", reason="send retries exhausted")
+    return False
 
 
 def _reload_queue(cfg: Config, state: RunState, event_prefix: str) -> RunState | None:
@@ -301,7 +335,7 @@ def _reload_queue(cfg: Config, state: RunState, event_prefix: str) -> RunState |
 
 def _try_extend_tasks(cfg: Config, state: RunState) -> RunState | None:
     """Level-1 light auto-extend: plan from the current TODO/project state only."""
-    if not _send_and_wait(cfg, state, EXTEND_PROMPT.format(project=cfg.project_dir), "extend"):
+    if not _extend_or_switch(cfg, state, EXTEND_PROMPT.format(project=cfg.project_dir), "extend"):
         return None
     return _reload_queue(cfg, state, "extend")
 
@@ -316,7 +350,7 @@ def _try_goal_extend(cfg: Config, state: RunState) -> RunState | None:
     if not goal:
         state.log("goal_extend_failed", reason="FinalGoal not found")
         return None
-    if not _send_and_wait(cfg, state, GOAL_EXTEND_PROMPT.format(project=cfg.project_dir, goal=goal[:_GOAL_CHUNK]), "goal_extend"):
+    if not _extend_or_switch(cfg, state, GOAL_EXTEND_PROMPT.format(project=cfg.project_dir, goal=goal[:_GOAL_CHUNK]), "goal_extend"):
         return None
     return _reload_queue(cfg, state, "goal_extend")
 
@@ -330,7 +364,7 @@ def _plan_initial_todo(cfg: Config, state: RunState) -> RunState | None:
     if not goal:
         state.log("plan_todo_failed", reason="FinalGoal not found")
         return None
-    if not _send_and_wait(cfg, state, INITIAL_PLAN_PROMPT.format(project=cfg.project_dir, goal=goal[:_GOAL_CHUNK]), "plan_todo"):
+    if not _extend_or_switch(cfg, state, INITIAL_PLAN_PROMPT.format(project=cfg.project_dir, goal=goal[:_GOAL_CHUNK]), "plan_todo"):
         return None
     return _reload_queue(cfg, state, "plan_todo")
 
