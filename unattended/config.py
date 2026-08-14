@@ -17,10 +17,10 @@ HARNESS_DIR = PKG_DIR.parent
 # 仓库内默认配置（干净默认值，不含任何本机路径）
 DEFAULT_CONFIG = PKG_DIR / "config.default.json"
 
-# 用户配置（分发后外置，不入库）：%APPDATA%\cursor-harness\config.json
+# 用户配置（分发后外置，不入库）：%APPDATA%\curloop\config.json
 # 加载顺序：default → 用户配置 → --config 显式指定 → CLI 覆盖
 _USER_APPDATA = Path(os.environ.get("APPDATA") or (Path.home() / "AppData" / "Roaming"))
-USER_CONFIG_DIR = _USER_APPDATA / "cursor-harness"
+USER_CONFIG_DIR = _USER_APPDATA / "curloop"
 USER_CONFIG = USER_CONFIG_DIR / "config.json"
 
 # Filled by loop.py before load when the user passes --project.

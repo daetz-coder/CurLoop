@@ -1,8 +1,7 @@
 {
-  "name": "cursor-harness",
+  "name": "curloop",
   "version": "0.1.0",
   "description": "无人值守 Cursor 编码循环：CDP 驱动真实 Cursor，检测用量/登录限制自动换号，按目标项目 TODO.md 队列无人值守执行（仅 Windows）。",
-  "private": true,
   "os": [
     "win32"
   ],
@@ -11,7 +10,6 @@
     "node": ">=18"
   },
   "bin": {
-    "cursor-harness": "bin/cursor-harness.js",
     "curloop": "bin/curloop.js"
   },
   "scripts": {

@@ -13,17 +13,17 @@
 ```bash
 # 安装（postinstall 自动下载嵌入式 Python 3.12 + pip 装依赖；国内可设 CURSOR_HARNESS_PYTHON_URL 换镜像）
 npm install          # 仓库根
-npm link             # 注册全局命令 cursor-harness / curloop
+npm link             # 注册全局命令 curloop
 
-cursor-harness --check-config          # 配置自检（只读）
-curloop run --mode live                # 无人值守运行（当前目录 = 目标项目，需管理员）
-curloop status / stats / watch         # 状态查看
-npm pack                               # 打发布包（files 白名单，不含 runtime/ 等运行产物）
+curloop --check-config               # 配置自检（只读）
+curloop run --mode live              # 无人值守运行（当前目录 = 目标项目，需管理员）
+curloop status / stats / watch       # 状态查看
+npm pack                             # 打发布包（files 白名单，不含 runtime/ 等运行产物）
 ```
 
 > 配置外置：仓库内 `config.default.json` 是干净默认（无本机路径）；你的本机配置写在
-> `%APPDATA%\cursor-harness\config.json`（Cursor.exe / 换号助手 exe 未配置时会自动检测常见路径）；
-> 运行状态默认存 `%APPDATA%\cursor-harness\runstate`。
+> `%APPDATA%\curloop\config.json`（Cursor.exe / 换号助手 exe 未配置时会自动检测常见路径）；
+> 运行状态默认存 `%APPDATA%\curloop\runstate`。
 
 ### 方式二：单文件一键（本地开发）
 

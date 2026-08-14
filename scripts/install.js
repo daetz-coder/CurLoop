@@ -1,6 +1,6 @@
 'use strict';
 /**
- * cursor-harness postinstall：
+ * curloop postinstall：
  *   1) 下载嵌入式 Python（python-build-standalone install_only，Windows x86_64）
  *      到 <pkg>/runtime/python/（已存在则跳过下载）
  *   2) pip install -r requirements.txt
@@ -26,8 +26,8 @@ const DEFAULT_URL =
   `https://github.com/astral-sh/python-build-standalone/releases/download/${TAG}/` +
   `cpython-${PY_VER}%2B${TAG}-x86_64-pc-windows-msvc-install_only_stripped.tar.gz`;
 
-function log(...a) { console.log('[cursor-harness install]', ...a); }
-function err(...a) { console.error('[cursor-harness install]', ...a); }
+function log(...a) { console.log('[curloop install]', ...a); }
+function err(...a) { console.error('[curloop install]', ...a); }
 
 /** https GET 下载（手动跟随 302/301 重定向，Node 原生模块不自动跟）。 */
 function download(url, dest) {
@@ -99,5 +99,5 @@ function pipInstall() {
 (async () => {
   await ensurePython();
   pipInstall();
-  log('完成。命令：cursor-harness --dry-run / curloop --help');
+  log('完成。命令：curloop --check-config / curloop run');
 })().catch((e) => { err(e); process.exit(1); });

@@ -1,10 +1,16 @@
 #!/usr/bin/env node
 'use strict';
 /**
- * curloop —— npm 分发的交互式 CLI 入口。
- * 等价于：python harness.py <args>
- * 例：curloop run / plan / status / stats / watch / init（无参数进入 REPL）
+ * curloop —— 全局命令入口（合并两种用法）：
+ *   - 第一个参数以 `-` 开头（--check-config / --dry-run / --detect-only / --mode live --project X ...）
+ *     → 无人值守直通：等价 `python -m unattended.loop`
+ *   - 其他（run / plan / status / stats / watch / init / 空）→ 交互 CLI：等价 `python harness.py`
  */
 const { runPython } = require('./_common');
 
-runPython(['harness.py', ...process.argv.slice(2)], 'curloop');
+const first = process.argv[2];
+if (first && first.startsWith('-')) {
+  runPython(['-m', 'unattended.loop', ...process.argv.slice(2)], 'curloop');
+} else {
+  runPython(['harness.py', ...process.argv.slice(2)], 'curloop');
+}
