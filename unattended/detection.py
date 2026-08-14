@@ -117,7 +117,10 @@ REPLY_JS = r"""
   // "Waiting xxx for shell" has words between Waiting and for, so match the
   // bare word too; also treat a last card whose title STARTS with Wait/Run/Exec
   // as still in progress (the agent is mid-tool).
-  const toolWaiting = /(waiting|awaiting|running|executing|in progress|pending|请稍候|正在|等待|执行中|运行中|处理中|进行中|准备中)/i.test(
+  // IMPORTANT: bare running/executing/pending match tool-card TITLES ("Check
+  // ... and running processes") of historical/finished calls and pin busy=True
+  // forever — keep explicit in-progress state words only.
+  const toolWaiting = /(waiting|awaiting|in progress|请稍候|等待中|执行中|运行中|处理中|进行中|准备中|正在)/i.test(
     cardHeaders.slice(-3).join(' ')
   )
     || /^(wait|run|exec|正在|等待|执行)/i.test(lastCard);
