@@ -299,7 +299,6 @@ def build_parser() -> argparse.ArgumentParser:
   · 在哪个目录运行，就对哪个目录执行 Harness（当前目录 = 目标项目）；/project 可切换。
   · 首次运行需要 FinalGoal.md：curloop init --final-goal 生成模板后编辑。
   · 无人值守会自动：关弹窗 / 换号 / 每完成一个任务 git commit / 队列空自动续任务。
-  · 观察面板：python dashboard.py 或双击 unattended\\dashboard.bat → http://127.0.0.1:8765
 """
     ap = argparse.ArgumentParser(
         prog="curloop",

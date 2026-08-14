@@ -1,6 +1,6 @@
 """共享观察逻辑：读 runstate/events.jsonl + snapshot.json，计算运行状态与统计。
 
-被 dashboard.py（Web 面板）与 unattended/cli.py（status/stats/watch）复用，
+被 unattended/cli.py（status/stats/watch）与 loop 周期状态块复用，
 保证统计口径一致。
 """
 from __future__ import annotations
