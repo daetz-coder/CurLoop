@@ -163,6 +163,32 @@ def _ensure_ready(cfg: Config, state: RunState, task: TodoTask) -> str:
     return "failed"
 
 
+# 周期状态块计时（单线程 loop，模块级足够）：距上次 >= periodic 时打印。
+_last_status_ts = 0.0
+
+
+def _maybe_print_status(cfg: Config) -> None:
+    """周期状态块：距上次打印 >= cfg.ui.periodic_status_s 秒时输出一次（0 关闭）。
+
+    在 run() 主循环与各长轮询循环（_wait_reply / _ensure_idle_before_send）里
+    调用，保证任务执行期间（Agent 长任务可阻塞 run_task 十几分钟）状态也刷新，
+    而不是只在任务间隙打印。
+    """
+    global _last_status_ts
+    periodic = cfg.ui.periodic_status_s
+    if periodic <= 0:
+        return
+    now = time.monotonic()
+    if now - _last_status_ts < periodic:
+        return
+    _last_status_ts = now
+    try:
+        print(ui.status_render(observer.build_status(project=str(cfg.project_dir))))
+        print()
+    except Exception:  # noqa: BLE001  状态面板异常不影响主循环
+        pass
+
+
 def _ensure_idle_before_send(cfg: Config, timeout_s: float = 1800.0) -> None:
     """Wait (up to timeout) until Cursor reports idle before sending the next
     prompt. Second line of defence against queueing prompts while the agent is
@@ -171,6 +197,7 @@ def _ensure_idle_before_send(cfg: Config, timeout_s: float = 1800.0) -> None:
     On CDP error or timeout we proceed anyway to avoid deadlock."""
     deadline = time.time() + timeout_s
     while time.time() < deadline:
+        _maybe_print_status(cfg)  # 长等待期间也刷新周期状态块
         try:
             s = cursor_ctl.evaluate_js(cfg.cursor.port, REPLY_JS) or {}
             if not s.get("busy"):
@@ -352,6 +379,7 @@ def _wait_reply(cfg: Config, state: RunState, task: TodoTask, sim: dict[str, boo
     while True:
         time.sleep(interval)
         poll_count += 1
+        _maybe_print_status(cfg)  # 长等待（等回复）期间也刷新周期状态块
         # Promo/update modals can pop up mid-conversation; dismiss periodically
         # so they don't cover the composer or stall the next send.
         if poll_count % 3 == 0:
@@ -453,22 +481,10 @@ def run(cfg: Config) -> int:
     sim: dict[str, bool] = {"forced": False}  # limit-sim: force the switch once
     extend_used = 0  # level-1 light auto-extend refills
     goal_extend_used = 0  # level-2 FinalGoal re-plans
-    # 周期状态块：CLI 模式下跑 loop 的终端定时出现状态面板（复用 ui.status_render，
-    # 非全屏、不遮挡换号助手窗口）。0 = 关闭。
-    periodic = cfg.ui.periodic_status_s
-    last_status = 0.0
     ui.init()
     try:
         while True:
-            if periodic > 0:
-                now = time.monotonic()
-                if now - last_status >= periodic:
-                    last_status = now
-                    try:
-                        print(ui.status_render(observer.build_status(project=str(cfg.project_dir))))
-                        print()
-                    except Exception:  # noqa: BLE001  状态面板异常不影响主循环
-                        pass
+            _maybe_print_status(cfg)  # 周期状态块（_wait_reply/_ensure_idle 内也会调用）
             task = state.next_task()
             if task is None:
                 # Queue empty. TODO.md missing (first run / deleted) -> always
