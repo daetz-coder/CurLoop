@@ -27,10 +27,15 @@ from .config import Config
 # 首次使用自动生成，后续复用缓存。必须在 import pywinauto 之前生效。
 try:
     import comtypes.client  # noqa: E402
+    import comtypes.gen  # noqa: E402
 
     _gen_dir = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "comtypes_gen"
     _gen_dir.mkdir(parents=True, exist_ok=True)
     comtypes.client.gen_dir = str(_gen_dir)
+    # site-packages/comtypes/gen/ 里可能残留旧版本生成的 wrapper（_check_version
+    # 不匹配 → "Typelib different than module"），且非 admin 删不掉；把包路径
+    # 指到重定向目录，让 wrapper 从用户可写目录加载/生成，免动 site-packages。
+    comtypes.gen.__path__ = [_gen_dir]
 except Exception:  # noqa: BLE001  (comtypes 缺失等：UIA fallback 自然降级)
     pass
 
@@ -153,14 +158,15 @@ def is_on_primary(x: int, y: int, w: int, h: int) -> bool:
 
 
 def move_to_primary_and_foreground(hwnd: int) -> None:
+    # 必须先还原再移动：SW_RESTORE=9（SW_SHOW=5 对最小化窗口无效）。顺序
+    # 必须在 SetWindowPos 之前——最小化窗口的 SetWindowPos 位置移动会被忽略，
+    # 先还原才能把屏幕外（-32000/-25600 隐藏位）的窗口带回主屏。
+    user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+    time.sleep(0.3)
     x, y, w, h = window_rect(hwnd)
     if not is_on_primary(x, y, w, h):
         user32.SetWindowPos(hwnd, 0, 100, 100, w, h, 0x0040)  # SWP_SHOWWINDOW
         time.sleep(0.4)
-    # SW_RESTORE=9：还原最小化窗口（SW_SHOW=5 对最小化窗口无效，会导致
-    # 窗口保持最小化 → 屏幕上没有内容 → 模板匹配必然失败）。
-    user32.ShowWindow(hwnd, 9)  # SW_RESTORE
-    time.sleep(0.3)
     # 置顶：防止最大化/全屏终端遮挡助手窗口导致模板匹配失败。TOPMOST 是显示
     # 层级、不依赖前台（SetForegroundWindow 仍尝试，尽力激活）。
     _set_topmost(hwnd, True)
@@ -211,11 +217,9 @@ def click_template(template: Path, confidence: float, timeout_s: float, poll: fl
 def _click_by_uia(title_re: str, button_re: str) -> dict[str, Any]:
     """Optional fallback: find the button by accessible name via pywinauto."""
     try:
-        import comtypes.client
-
-        gen = Path.home() / ".comtypes-gen"
-        gen.mkdir(parents=True, exist_ok=True)
-        comtypes.client.gen_dir = str(gen)
+        # gen_dir 已在模块顶部统一重定向到 %LOCALAPPDATA%\comtypes_gen；这里
+        # 不能再覆盖（旧实现覆盖到 ~/.comtypes-gen，与模块级缓存不一致 →
+        # "Typelib different than module"）。
         from pywinauto import Application
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "reason": f"pywinauto unavailable: {e}"}
@@ -281,6 +285,36 @@ def _find_assistant_window(exe_path: Path, timeout_s: float) -> tuple[int | None
             seen = _assistant_like_titles()
         time.sleep(2)
     return None, seen
+
+
+def _restart_assistant(cfg: Config) -> dict[str, Any]:
+    """重启换号助手（kill 全部实例 → 重新启动 → 等窗口 → 移到主屏）。
+
+    常驻助手可能把主窗口隐藏到系统托盘（Qt 最小化到托盘，SW_RESTORE 无法还原，
+    UIA 也不暴露隐藏窗口），模板匹配必然失败 → 只能重启让新窗口正常显示
+    （stable 时代每次换号重新启动，窗口正常、匹配成功）。
+    """
+    la = cfg.login_assistant
+    close_assistant(la.exe)  # WM_CLOSE + kill fallback（定义见下，运行时解析）
+    time.sleep(1.0)
+    try:
+        subprocess.Popen(
+            [str(la.exe)],
+            creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception as e:  # noqa: BLE001  (e.g. WinError 740 when not elevated)
+        return {"ok": False, "reason": f"relaunch: {e}"}
+    deadline = time.time() + la.launch_wait_s
+    while time.time() < deadline:
+        wins = find_windows_for_exe(la.exe)
+        if wins:
+            hwnd = wins[0]
+            move_to_primary_and_foreground(hwnd)
+            return {"ok": True, "hwnd": hwnd, "relaunched": True}
+        time.sleep(2)
+    return {"ok": False, "reason": "window not found after relaunch"}
 
 
 def refresh_account(cfg: Config, dry_run: bool = False) -> dict[str, Any]:
@@ -350,13 +384,27 @@ def refresh_account(cfg: Config, dry_run: bool = False) -> dict[str, Any]:
 
     # 3. Click 刷新Cursor.
     refresh = locate_template(la.refresh_template, la.confidence, timeout_s=la.confirm_wait_s, poll=0.5)
-    if not refresh.get("ok"):
-        refresh = _click_by_uia(r".*登录助手.*|.*Cursor.*", r".*刷新.*|.*Refresh.*")
-    elif not dry_run:
+    if refresh.get("ok") and not dry_run:
         import pyautogui
 
         pyautogui.click(*refresh["center"])
         refresh["clicked"] = True
+    if not refresh.get("ok"):
+        refresh = _click_by_uia(r".*登录助手.*", r".*刷新.*|.*Refresh.*")
+        if not refresh.get("ok") and not dry_run:
+            # 窗口被隐藏到托盘/最小化：模板与 UIA 都碰不到 → 重启助手重试
+            rp = _restart_assistant(cfg)
+            result["steps"].append({"step": "restart", **rp})
+            if rp.get("ok"):
+                hwnd = rp["hwnd"]
+                refresh = locate_template(la.refresh_template, la.confidence, timeout_s=la.confirm_wait_s, poll=0.5)
+                if refresh.get("ok") and not dry_run:
+                    import pyautogui
+
+                    pyautogui.click(*refresh["center"])
+                    refresh["clicked"] = True
+                elif not refresh.get("ok"):
+                    refresh = _click_by_uia(r".*登录助手.*", r".*刷新.*|.*Refresh.*")
     result["steps"].append({"step": "refresh", **refresh})
 
     # 4. Confirm dialog.
@@ -377,6 +425,8 @@ def refresh_account(cfg: Config, dry_run: bool = False) -> dict[str, Any]:
 
             pyautogui.click(*confirm["center"])
             confirm["clicked"] = True
+        elif not confirm.get("ok") and not dry_run:
+            confirm = _click_by_uia(r".*登录助手.*", r".*确定.*|.*OK.*|.*Confirm.*|.*确认.*")
     result["steps"].append({"step": "confirm", **confirm})
 
     result["ok"] = bool(refresh.get("ok"))
