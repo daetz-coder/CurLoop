@@ -76,7 +76,7 @@
     "auto_extend_max_iterations": 20
   },
   "ui": {
-    "periodic_status_s": 30
+    "periodic_status_s": 0
   },
   "state_dir": "D:\\2026AppDev\\CursorHarness\\unattended\\runstate",
   "event_log": "events.jsonl",
