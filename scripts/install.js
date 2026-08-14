@@ -94,6 +94,18 @@ function pipInstall() {
     err('pip install 失败 (exit', r.status, ')');
     process.exit(r.status || 1);
   }
+  // 健康检查：关键依赖可导入才认为安装成功，避免"装了但缺依赖"的静默失败。
+  const check = spawnSync(
+    PY_EXE,
+    ['-c', 'import websockets, pyautogui, pyscreeze, PIL, cv2, prompt_toolkit; print("deps ok")'],
+    { stdio: 'pipe', encoding: 'utf-8' }
+  );
+  if (check.status !== 0) {
+    err('依赖健康检查失败（import 错误如下），请重试 npm install：');
+    process.stderr.write(check.stderr || '');
+    process.exit(check.status || 1);
+  }
+  log('依赖健康检查通过:', (check.stdout || '').trim());
 }
 
 (async () => {
