@@ -189,29 +189,46 @@ def _maybe_print_status(cfg: Config) -> None:
         pass
 
 
-def _ensure_idle_before_send(cfg: Config, timeout_s: float = 1800.0) -> None:
+def _ensure_idle_before_send(cfg: Config, state: RunState | None = None, timeout_s: float = 1800.0) -> None:
     """Wait (up to timeout) until Cursor reports idle before sending the next
     prompt. Second line of defence against queueing prompts while the agent is
     still executing a long tool (shell/read/planning): even if wait_reply
     misjudges 'done', this gate blocks the actual send until busy clears.
     On CDP error or timeout we proceed anyway to avoid deadlock."""
     deadline = time.time() + timeout_s
+    waited = 0.0
     while time.time() < deadline:
         _maybe_print_status(cfg)  # 长等待期间也刷新周期状态块
         try:
             s = cursor_ctl.evaluate_js(cfg.cursor.port, REPLY_JS) or {}
             if not s.get("busy"):
                 return
+            flags = sorted(
+                k for k in ("hasStop", "thinking", "toolActivity", "toolRunning",
+                            "toolWaiting", "hasQueued", "composerText") if s.get(k)
+            )
         except Exception:  # noqa: BLE001  CDP trouble — don't block the run
             return
+        # 空闲门禁期间每 30s：记事件（用户能看到卡在哪）+ 清弹窗（弹窗可能
+        # 让 Agent 停在等待中，清掉有助于 busy 消除）。
+        if waited >= 30.0:
+            waited = 0.0
+            if state is not None:
+                state.log("idle_wait", busy=True, flags=flags,
+                          detail="awaiting idle before send")
+            try:
+                cursor_ctl.dismiss_all(cfg.cursor.port)
+            except Exception:  # noqa: BLE001
+                pass
         time.sleep(5)
+        waited += 5.0
 
 
 def _send(cfg: Config, state: RunState, task: TodoTask, prompt: str) -> bool:
     if task.retries:
         prompt = f"{prompt}\n[这是第 {task.retries + 1} 次尝试，请继续完成；之前可能被中断]"
     for attempt in range(cfg.retry.send_retries + 1):
-        _ensure_idle_before_send(cfg)  # don't pile prompts into Cursor's queue
+        _ensure_idle_before_send(cfg, state)  # don't pile prompts into Cursor's queue
         sr = cursor_ctl.send_prompt(cfg, prompt)
         if sr.get("ok"):
             state.log("sent", task=task.text[:40], attempt=attempt)
@@ -270,7 +287,7 @@ def _send_and_wait(cfg: Config, state: RunState, prompt: str, event_prefix: str 
     if not er.get("ok"):
         state.log(f"{event_prefix}_failed", reason=str(er.get("errors") or "not ready"))
         return "failed"
-    _ensure_idle_before_send(cfg)  # don't queue the plan prompt while the agent is busy
+    _ensure_idle_before_send(cfg, state)  # don't queue the plan prompt while the agent is busy
     sr = cursor_ctl.send_prompt(cfg, prompt, submit=True)
     if not sr.get("ok"):
         reason = sr.get("error") or (sr.get("type") or {}).get("reason") or "send failed"
