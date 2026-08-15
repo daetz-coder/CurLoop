@@ -184,7 +184,9 @@ def _maybe_print_status(cfg: Config) -> None:
         return
     _last_status_ts = now
     try:
-        print(ui.status_render(observer.build_status(project=str(cfg.project_dir))))
+        print(ui.status_render(observer.build_status(
+            project=str(cfg.project_dir), state_dir=cfg.state_dir,
+        )))
         print()
     except Exception:  # noqa: BLE001  状态面板异常不影响主循环
         pass

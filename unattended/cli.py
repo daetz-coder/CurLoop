@@ -219,23 +219,32 @@ def cmd_plan(args) -> int:
 
 def cmd_status(args) -> int:
     ui.init()
-    print(ui.status_render(observer.build_status(project=str(Path(args.project)))))
+    cfg = _cfg(Path(args.project), args.mode)
+    print(ui.status_render(observer.build_status(
+        project=str(cfg.project_dir), state_dir=cfg.state_dir,
+    )))
     return 0
 
 
 def cmd_stats(args) -> int:
     ui.init()
-    print(ui.stats_render(observer.build_status(project=str(Path(args.project)))["stats"]))
+    cfg = _cfg(Path(args.project), args.mode)
+    print(ui.stats_render(observer.build_status(
+        project=str(cfg.project_dir), state_dir=cfg.state_dir,
+    )["stats"]))
     return 0
 
 
 def cmd_watch(args) -> int:
     ui.init()
+    cfg = _cfg(Path(args.project), args.mode)
     print(ui.dim("[curloop] watch：每 3 秒刷新（Ctrl-C 退出）"))
     try:
         while True:
             os.system("cls" if os.name == "nt" else "clear")
-            print(ui.status_render(observer.build_status(project=str(Path(args.project)))))
+            print(ui.status_render(observer.build_status(
+                project=str(cfg.project_dir), state_dir=cfg.state_dir,
+            )))
             time.sleep(3)
     except KeyboardInterrupt:
         print("\n[curloop] watch 已停止")
@@ -424,7 +433,9 @@ def _banner(project: str) -> str:
     """启动横幅：logo + 当前项目实时统计 + 快速开始。"""
     c = ui.C
     try:
-        st = observer.build_status(project=project)["stats"]
+        cfg = Config.load()
+        cfg.project_dir = Path(project)
+        st = observer.build_status(project=project, state_dir=cfg.state_dir)["stats"]
     except Exception:
         st = {}
     pending, total = _todo_counts(project)

@@ -2,6 +2,8 @@
 
 被 unattended/cli.py（status/stats/watch）与 loop 周期状态块复用，
 保证统计口径一致。
+
+runstate 根目录与 Config.state_dir 同源（默认 %APPDATA%\\curloop\\runstate）。
 """
 from __future__ import annotations
 
@@ -10,10 +12,8 @@ import json
 import time
 from pathlib import Path
 
-from .config import current_branch
+from .config import USER_CONFIG_DIR, current_branch
 
-BASE = Path(__file__).resolve().parent.parent
-RUNSTATE = BASE / "unattended" / "runstate"
 _cache = {"mtime": 0.0, "events": [], "path": ""}
 
 
@@ -29,13 +29,19 @@ def _state_key(project: str) -> str:
     return _slug(f"{p.name}@{current_branch(p)}")
 
 
-def events_path(project: str | None = None) -> Path:
+def runstate_root(state_dir: Path | None = None) -> Path:
+    """默认与 Config.state_dir 一致：%APPDATA%\\curloop\\runstate。"""
+    return Path(state_dir) if state_dir is not None else (USER_CONFIG_DIR / "runstate")
+
+
+def events_path(project: str | None = None, state_dir: Path | None = None) -> Path:
     """events.jsonl for a (project, branch) pair; None = most recently active."""
+    root = runstate_root(state_dir)
     if project:
-        return RUNSTATE / _state_key(project) / "events.jsonl"
-    best, best_mt = RUNSTATE / "events.jsonl", 0.0  # 回退旧全局
+        return root / _state_key(project) / "events.jsonl"
+    best, best_mt = root / "events.jsonl", 0.0  # 回退旧全局
     try:
-        for p in RUNSTATE.glob("*/events.jsonl"):
+        for p in root.glob("*/events.jsonl"):
             try:
                 mt = p.stat().st_mtime
                 if mt > best_mt:
@@ -47,13 +53,13 @@ def events_path(project: str | None = None) -> Path:
     return best
 
 
-def snapshot_path(project: str | None = None) -> Path:
-    return events_path(project).with_name("snapshot.json")
+def snapshot_path(project: str | None = None, state_dir: Path | None = None) -> Path:
+    return events_path(project, state_dir=state_dir).with_name("snapshot.json")
 
 
-def load_events(project: str | None = None) -> list[dict]:
+def load_events(project: str | None = None, state_dir: Path | None = None) -> list[dict]:
     """Read events.jsonl (per project), cached by mtime."""
-    p = events_path(project)
+    p = events_path(project, state_dir=state_dir)
     try:
         mt = p.stat().st_mtime
         if mt != _cache["mtime"] or str(p) != _cache["path"]:
@@ -70,9 +76,9 @@ def load_events(project: str | None = None) -> list[dict]:
         return _cache["events"]
 
 
-def load_snapshot(project: str | None = None) -> dict:
+def load_snapshot(project: str | None = None, state_dir: Path | None = None) -> dict:
     try:
-        return json.loads(snapshot_path(project).read_text(encoding="utf-8"))
+        return json.loads(snapshot_path(project, state_dir=state_dir).read_text(encoding="utf-8"))
     except Exception:
         return {}
 
@@ -92,7 +98,7 @@ def short_detail(e: dict) -> str:
     return ""
 
 
-def _todo_aligned_queue(project: str | None, snap: dict) -> list[dict]:
+def _todo_aligned_queue(project: str | None, snap: dict, state_dir: Path | None = None) -> list[dict]:
     """状态展示的队列与 RunState.load 的 done 过滤对齐。
 
     快照里的任务若在当前 TODO.md 已勾选（[x]），标记 done——否则状态块显示
@@ -104,7 +110,7 @@ def _todo_aligned_queue(project: str | None, snap: dict) -> list[dict]:
     if not raw:
         return []
     todo: Path | None = None
-    for e in load_events(project):
+    for e in load_events(project, state_dir=state_dir):
         if e.get("event") == "run_start" and e.get("todo"):
             todo = Path(e["todo"])
             break
@@ -136,13 +142,17 @@ def _todo_aligned_queue(project: str | None, snap: dict) -> list[dict]:
     return out
 
 
-def build_status(project: str | None = None) -> dict:
+def build_status(
+    project: str | None = None,
+    state_dir: Path | None = None,
+) -> dict:
     """Compute stats + recent events + queue from the runstate files.
 
     project: target project dir (its events/snapshot); None = most recent.
+    state_dir: runstate root (default %APPDATA%\\curloop\\runstate).
     """
-    evs = load_events(project)
-    snap = load_snapshot(project)
+    evs = load_events(project, state_dir=state_dir)
+    snap = load_snapshot(project, state_dir=state_dir)
     st = {
         "switches": 0, "switch_ok": 0, "switch_failed": 0, "emails": [],
         "sends": 0, "tasks_done": 0, "tasks_start": 0, "extend_ok": 0,
@@ -195,7 +205,7 @@ def build_status(project: str | None = None) -> dict:
         {"t": fmt_ts(e.get("ts", 0)), "event": e.get("event"), "detail": short_detail(e)}
         for e in reversed(evs[-30:])
     ]
-    queue = _todo_aligned_queue(project, snap)
+    queue = _todo_aligned_queue(project, snap, state_dir=state_dir)
     return {
         "stats": st, "recent": recent, "queue": queue,
         "running": running, "now": fmt_ts(time.time()),
