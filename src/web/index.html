@@ -7,348 +7,420 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23090b0e'/%3E%3Cpath d='M7 9l4 7-4 7M13 9l4 7-4 7' stroke='%2334c9cf' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M19 9l6 14' stroke='%23007aff' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="vendor/tabler/tabler.min.css">
 <style>
-/* ============ shadcn/ui × Apple HIG design tokens ============ */
+/* ============ tokens（Refactoring UI × shadcn） ============ */
 :root{
-  --background:#fafafa; --foreground:#18181b;
-  --card:#ffffff; --card-foreground:#18181b;
-  --muted:#f4f4f5; --muted-foreground:#71717a;
-  --border:#e4e4e7; --border-strong:#d4d4d8; --input:#e4e4e7;
-  --primary:#18181b; --primary-foreground:#fafafa; --primary-hover:#27272a;
-  --secondary:#f4f4f5; --secondary-foreground:#18181b;
-  --destructive:#ef4444; --destructive-foreground:#fff;
-  --ring:#18181b;
+  --bg:#fafafa; --fg:#18181b; --sidebar:#f4f4f5; --card:#ffffff;
+  --muted:#f4f4f5; --muted-fg:#71717a; --faint:#a1a1aa;
+  --border:#e8e8ea; --border-strong:#d4d4d8;
+  --primary:#18181b; --primary-fg:#fafafa; --primary-hover:#27272a;
   --blue:#007aff; --green:#22c55e; --red:#ef4444; --amber:#f59e0b; --cyan:#06b6d4; --purple:#8b5cf6;
-  --r-sm:6px; --r-md:8px; --r-lg:12px; --r-xl:16px;
+  --r-sm:7px; --r-md:10px; --r-lg:14px;
   --shadow-sm:0 1px 2px 0 rgb(0 0 0 / .04);
-  --shadow-md:0 8px 24px -6px rgb(0 0 0 / .1), 0 2px 8px -2px rgb(0 0 0 / .05);
-  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
-  --mono:ui-monospace,SFMono-Regular,SF Mono,Consolas,"Cascadia Mono",monospace;
+  --shadow-md:0 10px 28px -8px rgb(0 0 0 / .12);
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Consolas,"Cascadia Mono",monospace;
 }
+*{box-sizing:border-box}
 html,body{height:100%}
-body{background:var(--background);color:var(--card-foreground);font-family:var(--font);
-  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-size:14px;letter-spacing:.01em}
-.page{min-height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:14px;
+  -webkit-font-smoothing:antialiased;letter-spacing:.01em}
 
-/* ============ navbar（Apple 毛玻璃） ============ */
-.navbar{background:rgba(255,255,255,.78);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);
-  border-bottom:1px solid var(--border)}
-.navbar-brand{font-weight:700;letter-spacing:-.01em;color:var(--foreground)}
-.brand-grad{background:linear-gradient(90deg,#0ea5b7,#2563eb);-webkit-background-clip:text;background-clip:text;color:transparent}
-.page-title{font-size:18px;font-weight:600;letter-spacing:-.02em;color:var(--foreground);margin:0}
-.page-title small{display:block;color:var(--muted-foreground);font-weight:400;font-size:11px;font-family:var(--mono);margin-top:3px;letter-spacing:0}
+/* ============ app shell：sidebar + main ============ */
+.app{display:flex;min-height:100vh}
+.sidebar{width:228px;flex:none;background:var(--sidebar);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:9px;padding:18px 18px 14px;font-size:16px;font-weight:700;letter-spacing:-.02em}
+.brand .g{background:linear-gradient(90deg,#0ea5b7,#2563eb);-webkit-background-clip:text;background-clip:text;color:transparent}
+.side-nav{flex:1;padding:6px 10px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 11px;border-radius:var(--r-md);
+  color:var(--muted-fg);font-size:13.5px;font-weight:500;cursor:pointer;border:none;background:none;
+  width:100%;text-align:left;transition:background-color .13s,color .13s;font-family:inherit}
+.nav-item svg{width:16px;height:16px;flex:none;stroke-width:1.9}
+.nav-item:hover{background:#ececee;color:var(--fg)}
+.nav-item.active{background:var(--card);color:var(--fg);box-shadow:var(--shadow-sm);font-weight:600}
+.nav-item.active svg{color:var(--blue)}
+.nav-sep{height:1px;background:var(--border);margin:8px 6px}
+.side-foot{padding:12px 14px;border-top:1px solid var(--border);font-size:11px;color:var(--faint)}
+.side-status{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 13px;box-shadow:var(--shadow-sm);margin-bottom:8px}
+.status-line{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:11.5px;color:var(--muted-fg);font-weight:500}
+.status-line .dot,.status-chip .dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--border-strong);transition:background-color .2s}
+.status-line .t-mono{font-family:var(--mono);font-weight:400}
+.status-line .dot.on,.status-chip .dot.on{animation:pulse2 1.6s infinite}
+@keyframes pulse2{50%{opacity:.4}}
+.status-chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+  border-radius:999px;padding:4px 13px;font-size:12px;font-weight:500;color:var(--fg);box-shadow:var(--shadow-sm)}
+.side-foot #h-project{font-family:var(--mono);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted-fg)}
 
-/* ============ buttons（shadcn/ui 语言） ============ */
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding:16px 28px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.7);
+  backdrop-filter:blur(14px);position:sticky;top:0;z-index:5}
+.topbar h1{margin:0;font-size:19px;font-weight:650;letter-spacing:-.02em}
+.topbar .sub{color:var(--muted-fg);font-size:11px;font-family:var(--mono);margin-top:2px}
+.top-actions{display:flex;align-items:center;gap:8px}
+.content{padding:26px 28px 40px;max-width:1280px;width:100%}
+.view{display:none}
+.view.active{display:block}
+
+/* ============ buttons（shadcn） ============ */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 14px;
   border-radius:var(--r-sm);font-size:13px;font-weight:500;line-height:1;border:1px solid transparent;
-  transition:background-color .15s ease,border-color .15s ease,color .15s ease,box-shadow .15s ease;
-  cursor:pointer;white-space:nowrap;box-shadow:none;text-decoration:none}
+  transition:background-color .14s,border-color .14s,color .14s;cursor:pointer;white-space:nowrap;font-family:inherit}
 .btn svg{width:15px;height:15px;flex:none;stroke-width:2}
-.btn:focus-visible{outline:none;box-shadow:0 0 0 2px var(--background),0 0 0 4px var(--ring)}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary)}
 .btn:disabled{opacity:.45;pointer-events:none}
-.btn-sm{height:30px;padding:0 11px;font-size:12px;border-radius:var(--r-sm)}
-.btn-primary{background:var(--primary);color:var(--primary-foreground)}
+.btn-sm{height:29px;padding:0 11px;font-size:12px}
+.btn-primary{background:var(--primary);color:var(--primary-fg)}
 .btn-primary:hover{background:var(--primary-hover)}
-.btn-primary:active{background:#3f3f46}
-.btn-light{background:var(--card);border-color:var(--border);color:var(--foreground)}
-.btn-light:hover{background:var(--muted);border-color:var(--border-strong)}
-.btn-light:active{background:#e9e9eb}
+.btn-outline{background:var(--card);border-color:var(--border-strong);color:var(--fg)}
+.btn-outline:hover{background:var(--muted)}
 .btn-danger{background:transparent;border-color:#fecaca;color:#dc2626}
 .btn-danger:hover{background:#fef2f2;border-color:#fca5a5}
 .btn-danger svg{color:#dc2626}
-.btn-ghost{background:transparent;color:var(--muted-foreground)}
-.btn-ghost:hover{background:var(--muted);color:var(--foreground)}
-.btn:active{transform:translateY(0)}
+.btn-ghost{background:transparent;color:var(--muted-fg)}
+.btn-ghost:hover{background:var(--muted);color:var(--fg)}
 
 /* ============ badges（subtle） ============ */
-.badge{font-weight:500;letter-spacing:.02em;border:1px solid transparent;padding:3px 10px;border-radius:999px;font-size:11px}
+.badge{font-weight:500;font-size:11px;border:1px solid transparent;border-radius:999px;padding:2px 10px;display:inline-block}
 .text-bg-success{background:#f0fdf4;color:#15803d;border-color:#bbf7d0}
 .text-bg-danger{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
 .text-bg-warning{background:#fffbeb;color:#b45309;border-color:#fde68a}
 .text-bg-info{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
 .text-bg-secondary{background:var(--muted);color:#52525b;border-color:var(--border)}
-.text-bg-purple{background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe}
 
-/* ============ stat cards（Apple 大数字 + shadcn 卡片） ============ */
-.stat-card{border-radius:var(--r-xl);border:1px solid var(--border);background:var(--card);
-  box-shadow:var(--shadow-sm);transition:box-shadow .2s ease,transform .2s ease}
+/* ============ overview ============ */
+.cards-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:14px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;
+  box-shadow:var(--shadow-sm);display:flex;gap:14px;align-items:center;transition:box-shadow .18s,transform .18s}
 .stat-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
-.stat-card .card-body{padding:16px}
-.stat-icon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:none}
-.stat-icon svg{width:17px;height:17px;stroke-width:1.9}
+.stat-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none}
+.stat-icon svg{width:18px;height:18px;stroke-width:1.9}
 .tint-blue{background:#eaf3ff;color:var(--blue)} .tint-cyan{background:#ecfeff;color:#0e7490}
 .tint-green{background:#f0fdf4;color:#16a34a} .tint-purple{background:#f5f3ff;color:#7c3aed}
 .tint-amber{background:#fffbeb;color:#b45309}
-.stat-label{color:var(--muted-foreground);font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px}
-.stat-num{font-size:23px;font-weight:650;letter-spacing:-.03em;line-height:1.15;color:var(--foreground);font-variant-numeric:tabular-nums}
-.stat-sub{color:var(--muted-foreground);font-size:11px;margin-top:2px}
-
-/* 配置摘要 chips */
+.stat-label{color:var(--muted-fg);font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-bottom:3px}
+.stat-num{font-size:24px;font-weight:650;letter-spacing:-.03em;line-height:1.15;font-variant-numeric:tabular-nums}
+.stat-sub{color:var(--muted-fg);font-size:11px;margin-top:2px}
 .cfg-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
-.cfg-chips .chip{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);
-  border-radius:999px;padding:3px 11px;font-size:11px;color:var(--muted-foreground);box-shadow:var(--shadow-sm)}
-.cfg-chips .chip b{color:var(--foreground);font-weight:600;font-family:var(--mono);font-size:10.5px}
+.cfg-chips .chip{background:var(--card);border:1px solid var(--border);border-radius:999px;padding:3px 11px;
+  font-size:11px;color:var(--muted-fg);box-shadow:var(--shadow-sm)}
+.cfg-chips .chip b{color:var(--fg);font-weight:600;font-family:var(--mono);font-size:10.5px}
 
 /* ============ panels ============ */
-.card{border-radius:var(--r-lg);border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow-sm)}
-.card-header{background:transparent;border-bottom:1px solid var(--border);border-radius:var(--r-lg) var(--r-lg) 0 0 !important;
-  padding:13px 16px;display:flex;align-items:center}
-.card-header .card-title{margin:0;font-size:13px;font-weight:600;color:var(--foreground);letter-spacing:-.01em;display:flex;align-items:center;gap:7px}
-.card-header .card-title svg{width:15px;height:15px;stroke-width:2;color:var(--muted-foreground)}
-.card-header .card-title.t-blue svg{color:var(--blue)} .card-header .card-title.t-green svg{color:var(--green)}
-.card-header .card-title.t-purple svg{color:var(--purple)} .card-header .card-title.t-cyan svg{color:var(--cyan)}
-.card-header .card-title.t-amber svg{color:var(--amber)}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-sm)}
+.panel-h{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;border-bottom:1px solid var(--border)}
+.panel-h .t{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.panel-h .t svg{width:15px;height:15px;stroke-width:2;color:var(--muted-fg)}
+.panel-b{padding:18px}
 
 /* ============ forms ============ */
-.form-label{font-size:11px;color:var(--muted-foreground);font-weight:500;letter-spacing:.02em;margin-bottom:4px}
-.form-control,.form-select{border-radius:var(--r-sm);border-color:var(--input);font-size:13px;color:var(--foreground);
-  min-height:34px;background-color:#fff;box-shadow:none;transition:border-color .15s,box-shadow .15s}
-.form-control:focus,.form-select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,122,255,.15)}
-.form-control::placeholder{color:#a1a1aa}
+.form-label{font-size:11px;color:var(--muted-fg);font-weight:500;margin-bottom:4px;display:block}
+.form-control,.form-select{border-radius:var(--r-sm);border-color:var(--border-strong);font-size:13px;color:var(--fg);
+  min-height:34px;background:#fff;box-shadow:none;transition:border-color .15s,box-shadow .15s}
+.form-control:focus,.form-select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,122,255,.14)}
+.form-control::placeholder{color:var(--faint)}
+details.panel{padding:0}
+details.panel summary{cursor:pointer;padding:10px 16px;font-weight:600;font-size:13px;list-style:none;display:flex;align-items:center;gap:8px}
+details.panel summary::-webkit-details-marker{display:none}
+details.panel summary .chev{margin-left:auto;width:15px;height:15px;color:var(--muted-fg);transition:transform .18s}
+details.panel[open] summary .chev{transform:rotate(180deg)}
+details.panel .panel-b{padding-top:0}
 
-/* ============ terminal（SF mono 深色终端） ============ */
-.term{background:#0b0c0e;border-radius:12px;overflow:hidden;box-shadow:var(--shadow-sm);border:1px solid #18191c}
-.term-bar{display:flex;justify-content:space-between;align-items:center;background:#131417;
-  border-bottom:1px solid #1f2126;padding:6px 14px;font-size:11px;color:#8e8e93;font-family:var(--mono)}
+/* ============ terminal ============ */
+.term{background:#0b0c0e;border-radius:12px;overflow:hidden;border:1px solid #18191c}
+.term-bar{display:flex;justify-content:space-between;align-items:center;background:#131417;border-bottom:1px solid #1f2126;
+  padding:6px 14px;font-size:11px;color:#8e8e93;font-family:var(--mono)}
 .term-bar .led{width:8px;height:8px;border-radius:50%;background:#3a3a3c;display:inline-block;margin-right:7px;vertical-align:-1px}
 .term-bar .led.on{background:#30d158;box-shadow:0 0 8px rgba(48,209,88,.5);animation:pulse 1.6s infinite}
 @keyframes pulse{50%{opacity:.4}}
-.term-out{height:290px;overflow-y:auto;padding:10px 14px;font:12px/1.65 var(--mono);white-space:pre-wrap;word-break:break-all;color:#d1d1d6;background:#0b0c0e}
+.term-out{height:380px;overflow-y:auto;padding:11px 15px;font:12px/1.65 var(--mono);white-space:pre-wrap;word-break:break-all;color:#d1d1d6}
 .term-out::-webkit-scrollbar{width:9px}.term-out::-webkit-scrollbar-thumb{background:#2c2c2e;border-radius:4px}
 
 /* ============ lists / tables ============ */
-.queue-item{display:flex;align-items:center;gap:9px;padding:8px 14px;border-bottom:1px solid #f1f1f3;font-size:13px;transition:background-color .12s}
+.queue-item{display:flex;align-items:center;gap:9px;padding:9px 16px;border-bottom:1px solid #f1f1f3;font-size:13px;transition:background-color .12s}
 .queue-item:last-child{border-bottom:none}
 .queue-item:hover{background:var(--muted)}
-.table-vcenter td,.table-vcenter th{vertical-align:middle}
-.ev-detail{color:var(--muted-foreground);font-size:12px}
-.table-responsive tbody tr{transition:background-color .1s}
-.table-responsive tbody tr:hover{background:var(--muted)}
-.table thead th{color:var(--muted-foreground);font-weight:500;font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+.table{font-size:13px}
+.table thead th{color:var(--muted-fg);font-weight:500;font-size:11px;letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid var(--border)}
+.table td{border-bottom:1px solid #f3f3f5;vertical-align:middle}
+.table tbody tr{transition:background-color .1s}
+.table tbody tr:hover{background:var(--muted)}
+.ev-detail{color:var(--muted-fg);font-size:12px}
 
-#report{font:12px/1.6 var(--mono);white-space:pre-wrap;word-break:break-all;max-height:280px;overflow:auto;
-  background:#fbfbfc;border:1px solid var(--border);border-radius:var(--r-md);padding:11px;color:#3f3f46}
-
-.chart{width:100%;height:300px}
-.chart-sm{width:100%;height:172px}
-.tl-hint{color:var(--muted-foreground);font-size:12px;margin-top:6px}
-.legend{display:flex;gap:14px;flex-wrap:wrap;margin:4px 0 2px;font-size:11px;color:var(--muted-foreground)}
+/* ============ charts / misc ============ */
+.chart-lg{width:100%;height:400px}
+.chart-md{width:100%;height:230px}
+.tl-hint{color:var(--muted-fg);font-size:12px;margin-top:8px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--muted-fg)}
 .legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+#report{font:12px/1.6 var(--mono);white-space:pre-wrap;word-break:break-all;max-height:420px;overflow:auto;
+  background:#fbfbfc;border:1px solid var(--border);border-radius:var(--r-md);padding:12px;color:#3f3f46}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #f3f3f5;font-size:13px}
+.kv:last-child{border-bottom:none}
+.kv .k{color:var(--muted-fg)} .kv .v{font-weight:500;text-align:right;font-variant-numeric:tabular-nums;word-break:break-all}
+.help{font-size:12.5px;color:var(--muted-fg);line-height:1.8}
 
-.footer{color:var(--muted-foreground);font-size:12px;text-align:center;padding:18px 0;border-top:1px solid var(--border);margin-top:22px}
-details.card{padding:0;background:var(--card)}
-details.card summary{cursor:pointer;padding:10px 14px;font-weight:600;color:var(--foreground);list-style:none;display:flex;align-items:center;gap:8px;font-size:13px}
-details.card summary::-webkit-details-marker{display:none}
-details.card summary .chev{margin-left:auto;width:16px;height:16px;flex:none;transition:transform .18s}
-details.card[open] summary .chev{transform:rotate(180deg)}
-details.card .card-body{padding:0 14px 14px}
+/* mobile：侧边栏收成顶部导航 */
+@media(max-width:960px){
+  .app{flex-direction:column}
+  .sidebar{width:100%;height:auto;position:static;flex-direction:row;align-items:center;border-right:none;border-bottom:1px solid var(--border)}
+  .brand{padding:12px 16px}
+  .side-nav{flex-direction:row;overflow-x:auto;padding:6px 8px;gap:4px}
+  .nav-item{white-space:nowrap;width:auto}
+  .side-foot{display:none}
+  .content{padding:16px}
+}
 </style>
 </head>
 <body>
-<div class="page">
-  <header class="navbar navbar-expand d-print-none sticky-top">
-    <div class="container-xl">
-      <a class="navbar-brand" href="#">
-        <svg width="24" height="24" viewBox="0 0 32 32" fill="none" style="margin-right:8px;vertical-align:-5px"><rect width="32" height="32" rx="8" fill="#090b0e"/><path d="M7 9l4 7-4 7M13 9l4 7-4 7" stroke="#34c9cf" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 9l6 14" stroke="#007aff" stroke-width="2.4" stroke-linecap="round"/></svg>
-        <span class="brand-grad">curloop</span>
-        <span style="font-size:11px;font-weight:400;color:var(--muted-foreground);margin-left:6px">CursorHarness</span>
-      </a>
-      <div class="navbar-nav flex-row align-items-center gap-2 ms-auto">
-        <span class="badge text-bg-info" id="h-mode">mode —</span>
-        <span class="badge text-bg-secondary" id="h-admin">权限检测中…</span>
-        <span class="badge text-bg-secondary" id="h-run">未运行</span>
-        <span class="badge text-bg-success" id="h-conn">已连接</span>
-      </div>
+<div class="app">
+  <!-- ============ sidebar ============ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#090b0e"/><path d="M7 9l4 7-4 7M13 9l4 7-4 7" stroke="#34c9cf" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 9l6 14" stroke="#007aff" stroke-width="2.4" stroke-linecap="round"/></svg>
+      <span class="g">curloop</span>
     </div>
-  </header>
-
-  <div class="page-wrapper">
-    <div class="container-xl py-4">
-      <!-- page header -->
-      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
-        <h1 class="page-title">无人值守 Cursor 编码循环 <small id="h-project">—</small></h1>
-        <div class="d-flex gap-2">
-          <button class="btn btn-ghost btn-sm" id="btn-report">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-            结束报告</button>
-          <button class="btn btn-ghost btn-sm" id="btn-refresh">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            刷新</button>
-        </div>
+    <nav class="side-nav" id="side-nav">
+      <button class="nav-item active" data-view="overview">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg>总览</button>
+      <button class="nav-item" data-view="console">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg>控制台</button>
+      <button class="nav-item" data-view="timeline">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>轨迹</button>
+      <button class="nav-item" data-view="queue">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>队列</button>
+      <button class="nav-item" data-view="events">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>事件</button>
+      <button class="nav-item" data-view="report">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>报告</button>
+      <div class="nav-sep"></div>
+      <button class="nav-item" data-view="help">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>帮助</button>
+    </nav>
+    <div class="side-foot">
+      <div class="side-status">
+        <div class="status-line"><span class="dot" id="dot-mode"></span><span class="t-mono" id="h-mode">mode —</span></div>
+        <div class="status-line"><span class="dot" id="dot-admin"></span><span id="h-admin">权限检测中…</span></div>
+        <div class="status-line"><span class="dot" id="dot-conn"></span><span id="h-conn">已连接</span></div>
       </div>
+      <div id="h-project" title="—">—</div>
+    </div>
+  </aside>
 
-      <!-- stat cards -->
-      <div class="row g-3 mb-2" id="cards"></div>
-      <!-- 配置摘要 -->
-      <div class="cfg-chips" id="cfg-chips"></div>
+  <!-- ============ main ============ -->
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <h1 id="view-title">总览</h1>
+        <div class="sub" id="topbar-sub"></div>
+      </div>
+      <div class="top-actions">
+        <div class="status-chip"><span class="dot" id="dot-run"></span><span id="h-run">未运行</span></div>
+        <button class="btn btn-ghost btn-sm" id="btn-refresh">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>刷新</button>
+      </div>
+    </header>
 
-      <!-- 控制台 + 轨迹 -->
-      <div class="row g-4 mb-3">
-        <div class="col-xl-5 col-lg-6">
-          <div class="card mb-3">
-            <div class="card-header"><span class="card-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 12l2 2 4-4"/></svg>
-              控制台</span></div>
-            <div class="card-body">
-              <form id="run-form">
-                <div class="row g-2 mb-2">
-                  <div class="col-md-4"><label class="form-label">模式</label>
-                    <select class="form-select form-select-sm" id="f-mode">
-                      <option value="dry-run">dry-run（只读预览）</option>
-                      <option value="live">live（无人值守，需管理员）</option>
-                      <option value="limit-sim">limit-sim（换号链路测试）</option>
-                    </select>
-                  </div>
-                  <div class="col-md-5"><label class="form-label">目标项目</label>
-                    <input class="form-control form-control-sm" id="f-project" placeholder="默认：当前项目">
-                  </div>
-                  <div class="col-md-3">
-                    <label class="form-label">任务 / 换号上限</label>
-                    <div class="d-flex gap-2">
-                      <input class="form-control form-control-sm" id="f-tasks" type="number" min="0" placeholder="任务" title="最大任务数（0=不限）">
-                      <input class="form-control form-control-sm" id="f-switches" type="number" min="0" placeholder="换号" title="最大换号数（0=不限）">
-                    </div>
-                  </div>
-                </div>
-                <div class="d-flex gap-2 flex-wrap">
-                  <button type="submit" class="btn btn-primary" id="btn-run">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-                    开始运行</button>
-                  <button type="button" class="btn btn-danger" id="btn-stop" disabled>
-                    <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-                    停止</button>
-                  <button type="button" class="btn btn-light" id="btn-plan">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
-                    只生成 TODO</button>
-                </div>
-              </form>
+    <div class="content">
+
+      <!-- ============ 总览 ============ -->
+      <section class="view active" id="view-overview">
+        <div class="cards-row" id="cards"></div>
+        <div class="cfg-chips" id="cfg-chips"></div>
+        <div class="row g-3">
+          <div class="col-lg-8">
+            <div class="panel">
+              <div class="panel-h"><span class="t">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-6 4 3 5-8"/></svg>
+                近 24 小时活动</span></div>
+              <div class="panel-b"><div id="activity" class="chart-md"></div>
+                <p class="tl-hint mb-0" id="act-hint">加载中…</p></div>
             </div>
-            <div class="card-body pt-0">
-              <details class="card mb-2" id="init-box">
-                <summary>初始化项目（FinalGoal / TODO 模板）<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
-                <div class="card-body">
-                  <label class="form-label">最终目标（可多行；留空生成模板）</label>
-                  <textarea class="form-control mb-2" id="f-goal" rows="3" placeholder="例如：用 TypeScript 完成一个 CLI 工具并发布到 npm…"></textarea>
-                  <button type="button" class="btn btn-light btn-sm" id="btn-init">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                    生成</button>
-                </div>
-              </details>
-              <details class="card" id="ask-box">
-                <summary>手动向 Cursor 发送消息（人在回路 / 调试）<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
-                <div class="card-body">
-                  <label class="form-label">消息内容（发送到 Cursor 当前会话；需 Cursor 带 CDP 运行）</label>
-                  <textarea class="form-control mb-2" id="f-ask" rows="2" placeholder="例如：现在项目进度如何？先别改代码，只回答。"></textarea>
-                  <button type="button" class="btn btn-light btn-sm" id="btn-ask">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
-                    发送</button>
-                </div>
-              </details>
+          </div>
+          <div class="col-lg-4">
+            <div class="panel h-100">
+              <div class="panel-h"><span class="t">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                运行摘要</span></div>
+              <div class="panel-b" id="run-summary"><div class="text-secondary">加载中…</div></div>
             </div>
-            <div class="card-body pt-0">
-              <h6 class="mb-2" style="font-size:11.5px;color:var(--muted-foreground);letter-spacing:.03em">运行输出 · 子进程实时日志</h6>
-              <div class="term">
-                <div class="term-bar">
-                  <span><span class="led" id="console-led"></span><span id="console-status">空闲</span></span>
-                  <span id="console-count">0 行</span>
-                </div>
-                <div class="term-out" id="console"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 控制台 ============ -->
+      <section class="view" id="view-console">
+        <div class="panel mb-3">
+          <div class="panel-h"><span class="t">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 12l2 2 4-4"/></svg>
+            运行</span></div>
+          <div class="panel-b">
+            <form id="run-form">
+              <div class="row g-2 mb-3">
+                <div class="col-md-3"><label class="form-label">模式</label>
+                  <select class="form-select form-select-sm" id="f-mode">
+                    <option value="dry-run">dry-run（只读预览）</option>
+                    <option value="live">live（无人值守，需管理员）</option>
+                    <option value="limit-sim">limit-sim（换号链路测试）</option>
+                  </select></div>
+                <div class="col-md-5"><label class="form-label">目标项目</label>
+                  <input class="form-control form-control-sm" id="f-project" placeholder="默认：当前项目"></div>
+                <div class="col-md-4">
+                  <label class="form-label">任务 / 换号上限</label>
+                  <div class="d-flex gap-2">
+                    <input class="form-control form-control-sm" id="f-tasks" type="number" min="0" placeholder="任务" title="最大任务数（0=不限）">
+                    <input class="form-control form-control-sm" id="f-switches" type="number" min="0" placeholder="换号" title="最大换号数（0=不限）">
+                  </div></div>
+              </div>
+              <div class="d-flex gap-2 flex-wrap">
+                <button type="submit" class="btn btn-primary" id="btn-run">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                  开始运行</button>
+                <button type="button" class="btn btn-danger" id="btn-stop" disabled>
+                  <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                  停止</button>
+                <button type="button" class="btn btn-outline" id="btn-plan">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+                  只生成 TODO</button>
+              </div>
+            </form>
+            <div class="row g-2 mt-1">
+              <div class="col-md-6">
+                <details class="panel" id="init-box">
+                  <summary>初始化项目（FinalGoal / TODO 模板）<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                  <div class="panel-b">
+                    <label class="form-label">最终目标（可多行；留空生成模板）</label>
+                    <textarea class="form-control mb-2" id="f-goal" rows="3" placeholder="例如：用 TypeScript 完成一个 CLI 工具并发布到 npm…"></textarea>
+                    <button type="button" class="btn btn-outline btn-sm" id="btn-init">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                      生成</button>
+                  </div>
+                </details>
+              </div>
+              <div class="col-md-6">
+                <details class="panel" id="ask-box">
+                  <summary>手动向 Cursor 发送消息（人在回路 / 调试）<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                  <div class="panel-b">
+                    <label class="form-label">消息内容（发送到 Cursor 当前会话；需 Cursor 带 CDP 运行）</label>
+                    <textarea class="form-control mb-2" id="f-ask" rows="2" placeholder="例如：现在项目进度如何？先别改代码，只回答。"></textarea>
+                    <button type="button" class="btn btn-outline btn-sm" id="btn-ask">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
+                      发送</button>
+                  </div>
+                </details>
               </div>
             </div>
           </div>
         </div>
+        <div class="panel">
+          <div class="panel-h"><span class="t">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg>
+            运行输出 · 子进程实时日志</span>
+            <span class="badge text-bg-secondary" id="console-count">0 行</span></div>
+          <div class="term">
+            <div class="term-bar">
+              <span><span class="led" id="console-led"></span><span id="console-status">空闲</span></span>
+              <span></span>
+            </div>
+            <div class="term-out" id="console"></div>
+          </div>
+        </div>
+      </section>
 
-        <div class="col-xl-7 col-lg-6">
-          <div class="card mb-3">
-            <div class="card-header"><span class="card-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-              轨迹时间线 · 最近一次 run</span></div>
-            <div class="card-body">
-              <div id="timeline" class="chart"></div>
-              <div class="legend">
-                <span><i style="background:#22c55e"></i>完成任务</span>
-                <span><i style="background:#ef4444"></i>跳过/出错</span>
-                <span><i style="background:#f59e0b"></i>进行中</span>
-                <span><i style="background:#22c55e;border-radius:50%"></i>换号成功</span>
-                <span><i style="background:#ef4444;border-radius:50%"></i>换号失败</span>
-                <span><i style="background:#3b82f6;border-radius:50%"></i>发送</span>
-              </div>
-              <p class="tl-hint mb-0" id="tl-hint">加载中…</p>
+      <!-- ============ 轨迹 ============ -->
+      <section class="view" id="view-timeline">
+        <div class="panel">
+          <div class="panel-h"><span class="t">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            轨迹时间线 · 最近一次 run</span>
+            <button class="btn btn-ghost btn-sm" id="btn-timeline-refresh">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              刷新图表</button></div>
+          <div class="panel-b">
+            <div id="timeline" class="chart-lg"></div>
+            <div class="legend">
+              <span><i style="background:#22c55e"></i>完成任务</span>
+              <span><i style="background:#ef4444"></i>跳过/出错</span>
+              <span><i style="background:#f59e0b"></i>进行中</span>
+              <span><i style="background:#22c55e;border-radius:50%"></i>换号成功</span>
+              <span><i style="background:#ef4444;border-radius:50%"></i>换号失败</span>
+              <span><i style="background:#3b82f6;border-radius:50%"></i>发送</span>
+            </div>
+            <p class="tl-hint mb-0" id="tl-hint">加载中…</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 队列 ============ -->
+      <section class="view" id="view-queue">
+        <div class="row g-3">
+          <div class="col-lg-7">
+            <div class="panel h-100">
+              <div class="panel-h"><span class="t">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+                TODO 队列</span><span class="badge text-bg-secondary" id="queue-count">—</span></div>
+              <div id="queue"><div class="p-3 text-secondary">加载中…</div></div>
             </div>
           </div>
-          <div class="card">
-            <div class="card-header"><span class="card-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-6 4 3 5-8"/></svg>
-              近 24 小时活动</span></div>
-            <div class="card-body">
-              <div id="activity" class="chart-sm"></div>
-              <p class="tl-hint mb-0" id="act-hint">加载中…</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 队列 / 账号 / 事件 -->
-      <div class="row g-4 mb-3">
-        <div class="col-lg-4">
-          <div class="card h-100">
-            <div class="card-header"><span class="card-title t-purple">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
-              TODO 队列</span></div>
-            <div class="card-body p-0" id="queue"><div class="p-3 text-secondary">加载中…</div></div>
-          </div>
-        </div>
-        <div class="col-lg-4">
-          <div class="card h-100">
-            <div class="card-header"><span class="card-title t-cyan">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>
-              账号 / 换号</span></div>
-            <div class="card-body p-0" id="accounts"><div class="p-3 text-secondary">加载中…</div></div>
-          </div>
-        </div>
-        <div class="col-lg-4">
-          <div class="card h-100">
-            <div class="card-header"><span class="card-title t-amber">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-              最近事件</span></div>
-            <div class="table-responsive" style="max-height:320px;overflow-y:auto">
-              <table class="table table-sm table-vcenter card-table">
-                <thead><tr><th style="width:60px">时间</th><th style="width:120px">事件</th><th>详情</th></tr></thead>
-                <tbody id="events"><tr><td colspan="3" class="text-secondary">加载中…</td></tr></tbody>
-              </table>
+          <div class="col-lg-5">
+            <div class="panel h-100">
+              <div class="panel-h"><span class="t">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>
+                账号 / 换号</span></div>
+              <div id="accounts"><div class="p-3 text-secondary">加载中…</div></div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- 报告 + 说明 -->
-      <div class="row g-4">
-        <div class="col-lg-6">
-          <div class="card h-100">
-            <div class="card-header"><span class="card-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
-              结束报告 · report.json</span></div>
-            <div class="card-body"><pre id="report">（运行正常结束后自动生成）</pre></div>
+      <!-- ============ 事件 ============ -->
+      <section class="view" id="view-events">
+        <div class="panel">
+          <div class="panel-h"><span class="t">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            最近事件</span><span class="badge text-bg-secondary" id="events-count">—</span></div>
+          <div class="table-responsive" style="max-height:600px;overflow-y:auto">
+            <table class="table table-vcenter">
+              <thead><tr><th style="width:64px">时间</th><th style="width:140px">事件</th><th>详情</th></tr></thead>
+              <tbody id="events"><tr><td colspan="3" class="text-secondary">加载中…</td></tr></tbody>
+            </table>
           </div>
         </div>
-        <div class="col-lg-6">
-          <div class="card h-100">
-            <div class="card-header"><span class="card-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
-              说明</span></div>
-            <div class="card-body" style="font-size:12.5px;color:var(--muted-foreground)">
-              <p class="mb-1">· 运行/规划经子进程执行，日志实时回传，刷新页面不中断。</p>
-              <p class="mb-1">· 停止 = 写入 <code>STOP</code> 文件优雅收尾（退出码 2）；删除文件可取消。</p>
-              <p class="mb-1">· live / limit-sim 需管理员：用管理员终端运行 <code>curloop web</code>。</p>
-              <p class="mb-1">· 长对话：<code>thread.rotate_every_tasks</code> 自动 New Chat + 续接（HARNESS_STATE.md + git + 剩余 TODO）。</p>
-              <p class="mb-0">· 时间线/活动图由 events.jsonl 渲染（ECharts），支持缩放拖拽。</p>
-            </div>
+      </section>
+
+      <!-- ============ 报告 ============ -->
+      <section class="view" id="view-report">
+        <div class="panel">
+          <div class="panel-h"><span class="t">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+            结束报告 · report.json</span>
+            <button class="btn btn-outline btn-sm" id="btn-report">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              重新加载</button></div>
+          <div class="panel-b"><pre id="report">（运行正常结束后自动生成）</pre></div>
+        </div>
+      </section>
+
+      <!-- ============ 帮助 ============ -->
+      <section class="view" id="view-help">
+        <div class="panel">
+          <div class="panel-h"><span class="t">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+            说明</span></div>
+          <div class="panel-b help">
+            <p class="mb-2">· <b>运行 / 规划</b>：经子进程执行 <code>curloop run/plan</code>，日志实时回传，刷新页面不中断。</p>
+            <p class="mb-2">· <b>停止</b>：写入 <code>STOP</code> 文件让 loop 优雅收尾（退出码 2，watchdog 不重启）；删除文件可取消。</p>
+            <p class="mb-2">· <b>权限</b>：live / limit-sim 需要管理员——请用管理员终端运行 <code>curloop web</code>。</p>
+            <p class="mb-2">· <b>长对话</b>：<code>thread.rotate_every_tasks</code> 每 N 个任务自动 New Chat + 续接
+              （HARNESS_STATE.md + git + 剩余 TODO）；<code>prompt.checkpoint_every_tasks</code> 定期写进度小结。</p>
+            <p class="mb-2">· <b>记忆</b>：HARNESS_STATE.md 由 harness 在每次结束时自动生成（队列 + 账号 + 最近事件），新会话/恢复自动续接。</p>
+            <p class="mb-0">· <b>可视化</b>：轨迹时间线 / 活动图由 events.jsonl 客户端渲染（ECharts），支持滚轮缩放与拖拽。</p>
           </div>
         </div>
-      </div>
+      </section>
 
-      <footer class="footer">curloop · CursorHarness Web · 数据源 %APPDATA%\curloop\runstate · 仅绑定 127.0.0.1</footer>
     </div>
-  </div>
+  </main>
 </div>
 
 <script src="vendor/tabler/tabler.min.js"></script>
@@ -359,14 +431,11 @@ const $ = (id) => document.getElementById(id);
 const state = { since: 0, eventsKey: '', lastReportTs: 0, connDown: false };
 let timelineChart = null, activityChart = null;
 
-// 亮色图表配色（zinc / iOS 语义色）
 const L = {
   axisLabel: '#a1a1aa', axisLine: '#d4d4d8', splitLine: '#f0f0f1',
   zoomBg: '#fafafa', zoomBorder: '#d4d4d8',
   green: '#22c55e', red: '#ef4444', yellow: '#f59e0b', blue: '#3b82f6', cyan: '#06b6d4', purple: '#8b5cf6',
 };
-
-// 统计卡片图标（Feather 风格，stroke 系）
 const I = {
   swap:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
   send:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>',
@@ -379,35 +448,60 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&
 function ts2h(ts){ const d=new Date(Number(ts)*1000); const p=(x)=>String(x).padStart(2,'0'); return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
 function fmtDur(sec){ sec=Math.max(0,Math.round(sec)); if(sec<60) return sec+'s'; if(sec<3600) return Math.floor(sec/60)+'m'+String(sec%60).padStart(2,'0')+'s'; return Math.floor(sec/3600)+'h'+String(Math.floor(sec%3600/60)).padStart(2,'0')+'m'; }
 async function api(url, opts){
-  try {
-    const r = await fetch(url, opts);
-    const j = await r.json();
-    setConn(true);
-    return j;
-  } catch (e) {
-    setConn(false);
-    return { ok:false, error:'连接失败: ' + (e && e.message || e) };
-  }
+  try { const r = await fetch(url, opts); const j = await r.json(); setConn(true); return j; }
+  catch (e) { setConn(false); return { ok:false, error:'连接失败: ' + (e && e.message || e) }; }
 }
 function setConn(up){
   if(up === state.connDown){
     state.connDown = !up;
     const el = $('h-conn');
     el.textContent = up ? '已连接' : '连接断开';
-    el.className = 'badge ' + (up ? 'text-bg-success' : 'text-bg-danger');
+    $('dot-conn').style.background = up ? '#22c55e' : '#ef4444';
   }
 }
 
-// ------------------------------------------------------------ status ----
+// ============ 视图切换（Refactoring UI：一屏一焦点） ============
+const VIEW_TITLES = { overview:'总览', console:'控制台', timeline:'轨迹', queue:'队列', events:'事件', report:'报告', help:'帮助' };
+function switchView(name){
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === name));
+  $('view-title').textContent = VIEW_TITLES[name] || name;
+  if(name === 'events') refreshEvents();
+  if(name === 'timeline') refreshCharts();
+  if(name === 'report') loadReport();
+  if(timelineChart) timelineChart.resize();
+  if(activityChart) activityChart.resize();
+}
+document.querySelectorAll('.nav-item').forEach(n => n.addEventListener('click', () => switchView(n.dataset.view)));
+
+// ============ status ============
 async function refreshStatus(){
   const d = await api('/api/status');
   if(!d.ok) return;
-  $('h-project').textContent = d.project + '  ·  runstate: ' + d.stateDir;
+  $('h-project').textContent = d.project + ' · ' + d.stateDir;
+  $('h-project').title = d.project + '\n' + d.stateDir;
+  $('topbar-sub').textContent = d.project;
+  // 状态点 + 文字（语义色只落在圆点上，容器统一）
   $('h-mode').textContent = 'mode ' + (d.config.mode || '—');
-  $('h-admin').textContent = d.admin ? '管理员 ✓' : '非管理员';
-  $('h-admin').className = 'badge ' + (d.admin ? 'text-bg-success' : 'text-bg-warning');
-  $('h-run').textContent = d.running ? '运行中（' + d.runKind + '）' : (d.exitCode != null ? '上次退出码 ' + d.exitCode : '未运行');
-  $('h-run').className = 'badge ' + (d.running ? 'text-bg-warning' : 'text-bg-secondary');
+  $('dot-mode').style.background = '#007aff';
+  $('h-admin').textContent = d.admin ? '管理员' : '非管理员';
+  $('dot-admin').style.background = d.admin ? '#22c55e' : '#f59e0b';
+  let runTxt, runColor;
+  if (d.running) {
+    runTxt = '运行中' + (d.runKind && d.runKind !== 'run' ? '（' + d.runKind + '）' : '');
+    runColor = '#22c55e';
+    $('dot-run').classList.add('on');
+  } else if (d.exitCode != null) {
+    runTxt = '上次退出码 ' + d.exitCode;
+    runColor = d.exitCode === 0 ? '#d4d4d8' : d.exitCode === 1 ? '#ef4444' : '#f59e0b';
+    $('dot-run').classList.remove('on');
+  } else {
+    runTxt = '未运行';
+    runColor = '#d4d4d8';
+    $('dot-run').classList.remove('on');
+  }
+  $('h-run').textContent = runTxt;
+  $('dot-run').style.background = runColor;
   $('btn-run').disabled = d.running;
   $('btn-stop').disabled = !d.running;
   $('btn-plan').disabled = d.running;
@@ -421,13 +515,11 @@ async function refreshStatus(){
     { k:'运行状态', v:d.status.running, sub:'刷新 '+d.status.now, icon:I.clock, tint:'tint-amber' },
   ];
   $('cards').innerHTML = cards.map(c =>
-    '<div class="col-6 col-md-4 col-xl"><div class="card stat-card h-100"><div class="card-body d-flex gap-3 align-items-center">' +
-    '<div class="stat-icon '+c.tint+'">'+c.icon+'</div>' +
+    '<div class="stat-card"><div class="stat-icon '+c.tint+'">'+c.icon+'</div>' +
     '<div class="overflow-hidden"><div class="stat-label">'+c.k+'</div><div class="stat-num">'+c.v+'</div>' +
-    '<div class="stat-sub">'+esc(c.sub)+'</div></div></div></div></div>'
+    '<div class="stat-sub">'+esc(c.sub)+'</div></div></div>'
   ).join('');
 
-  // 配置摘要
   const cf = d.config || {};
   const chips = [
     ['Cursor', cf.cursorExe || '—'],
@@ -439,7 +531,19 @@ async function refreshStatus(){
   ];
   $('cfg-chips').innerHTML = chips.map(c => '<span class="chip">'+c[0]+' <b>'+esc(c[1])+'</b></span>').join('');
 
+  // 运行摘要
+  const kv = [
+    ['状态', d.running ? '运行中（' + d.runKind + '）' : (d.exitCode != null ? '已结束 · 退出码 ' + d.exitCode : '未运行')],
+    ['模式', d.config.mode || '—'],
+    ['已运行', d.status.running],
+    ['完成 / 发送', s.tasks_done + ' / ' + s.sends],
+    ['账号', (s.emails && s.emails.length) ? s.emails.length + ' 个' : '—'],
+  ];
+  $('run-summary').innerHTML = kv.map(([k, v]) =>
+    '<div class="kv"><span class="k">'+k+'</span><span class="v">'+esc(String(v))+'</span></div>').join('');
+
   const q = d.status.queue;
+  $('queue-count').textContent = q.length + ' 项';
   $('queue').innerHTML = q.length ? q.map(x => {
     const mk = {done:'<span class="badge text-bg-success">✓</span>', running:'<span class="badge text-bg-info">▶</span>', pending:'<span class="badge text-bg-secondary">○</span>', skipped:'<span class="badge text-bg-danger">✗</span>'};
     const st = mk[x.status] || '<span class="badge text-bg-secondary">'+esc(x.status)+'</span>';
@@ -452,14 +556,15 @@ async function refreshStatus(){
   return d;
 }
 
-// ------------------------------------------------------------ events ----
+// ============ events ============
 async function refreshEvents(){
   const d = await api('/api/events?n=200');
   if(!d.ok) return;
+  $('events-count').textContent = d.events.length + ' 条';
   const key = d.events.length ? d.events[0].ts + '|' + d.events.length : '0';
   if(key === state.eventsKey) return;
   state.eventsKey = key;
-  const rows = d.events.slice(0, 60).map(e => {
+  const rows = d.events.slice(0, 80).map(e => {
     const ev = String(e.event || '');
     let bg = 'text-bg-secondary';
     if(/fail|error|abort/.test(ev)) bg = 'text-bg-danger';
@@ -467,12 +572,12 @@ async function refreshEvents(){
     else if(/start|switch|run/.test(ev)) bg = 'text-bg-info';
     else if(/wait|poll|cooldown|extend|checkpoint/.test(ev)) bg = 'text-bg-warning';
     const detail = [e.detail, e.reason, e.task].map(v => v ? String(v) : '').find(Boolean) || '';
-    return '<tr><td class="text-secondary">' + ts2h(e.ts) + '</td><td><span class="badge ' + bg + '">' + esc(ev) + '</span></td><td class="ev-detail">' + esc(String(detail).slice(0,80)) + '</td></tr>';
+    return '<tr><td class="text-secondary">' + ts2h(e.ts) + '</td><td><span class="badge ' + bg + '">' + esc(ev) + '</span></td><td class="ev-detail">' + esc(String(detail).slice(0,90)) + '</td></tr>';
   }).join('');
   $('events').innerHTML = rows || '<tr><td colspan="3" class="text-secondary">（空）</td></tr>';
 }
 
-// ------------------------------------------------------------ console ----
+// ============ console ============
 async function refreshConsole(){
   const d = await api('/api/console?since=' + state.since);
   if(!d.ok) return;
@@ -502,7 +607,7 @@ async function loadReport(){
   $('report').textContent = d.report ? JSON.stringify(d.report, null, 2) : '（暂无 report.json）';
 }
 
-// ------------------------------------------------------------ charts ----
+// ============ charts ============
 function prepareTrajectory(evs){
   const chrono = evs.slice().reverse();
   let startTs = 0;
@@ -556,7 +661,7 @@ function renderTimeline(evs){
         return '';
       }
     },
-    grid: { left: 56, right: 16, top: 14, bottom: 52 },
+    grid: { left: 56, right: 20, top: 16, bottom: 54 },
     xAxis: {
       type: 'value', min: t0, max: tMax,
       axisLabel: { formatter: (v) => ts2h(v), color: L.axisLabel },
@@ -631,7 +736,7 @@ function renderActivity(evs){
     animation: false,
     tooltip: { trigger: 'axis', confine: true },
     legend: { data: ['完成任务','发送','换号成功','换号失败'], textStyle: { color: L.axisLabel, fontSize: 11 }, top: 0 },
-    grid: { left: 34, right: 12, top: 28, bottom: 22 },
+    grid: { left: 34, right: 12, top: 30, bottom: 22 },
     xAxis: { type: 'category', data: buckets.map(b => b.label), axisLabel: { color: L.axisLabel, fontSize: 10 }, axisLine: { lineStyle: { color: L.axisLine } } },
     yAxis: { type: 'value', minInterval: 1, axisLabel: { color: L.axisLabel }, splitLine: { lineStyle: { color: L.splitLine } } },
     series: [
@@ -651,7 +756,7 @@ async function refreshCharts(){
   renderActivity(d.events);
 }
 
-// ------------------------------------------------------------ controls ----
+// ============ controls ============
 $('run-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const body = {
@@ -715,8 +820,9 @@ $('btn-ask').addEventListener('click', async () => {
 
 $('btn-refresh').addEventListener('click', () => { refreshStatus(); refreshEvents(); refreshCharts(); loadReport(); });
 $('btn-report').addEventListener('click', loadReport);
+$('btn-timeline-refresh').addEventListener('click', () => refreshCharts());
 
-// ------------------------------------------------------------ loop ----
+// ============ loop ============
 async function tick(){
   await refreshStatus();
   await refreshEvents();
