@@ -150,15 +150,62 @@ function cfgFor(cwd: string): Config {
 }
 
 // ------------------------------------------------------------------- routes ----
+const MIME: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+  '.map': 'application/json',
+};
+
+function serveStatic(res: http.ServerResponse, relRaw: string): boolean {
+  // 解码 + 去多余斜杠后解析；防目录穿越：只允许 WEB_DIR 内的文件
+  let rel: string;
+  try {
+    rel = decodeURIComponent(relRaw).replace(/^\/+/, '');
+  } catch {
+    rel = relRaw.replace(/^\/+/, '');
+  }
+  const base = path.resolve(WEB_DIR);
+  const target = path.resolve(base, rel);
+  if (!target.startsWith(base + path.sep) && target !== base) {
+    sendJson(res, 403, { ok: false, error: 'forbidden' });
+    return true;
+  }
+  try {
+    const st = fs.statSync(target);
+    if (!st.isFile()) {
+      sendJson(res, 404, { ok: false, error: 'not found' });
+      return true;
+    }
+    const ext = path.extname(target).toLowerCase();
+    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
+    fs.createReadStream(target).pipe(res);
+    return true;
+  } catch {
+    sendJson(res, 404, { ok: false, error: 'not found' });
+    return true;
+  }
+}
+
 function router(cfg: Config): http.RequestListener {
   return async (req, res) => {
     const url = (req.url || '/').split('?')[0];
     try {
-      if (req.method === 'GET' && url === '/') {
+      // 静态资源：/ 与 /index.html → 页面；/vendor/* 与其余文件 → 文件服务
+      if (req.method === 'GET' && (url === '/' || url === '/index.html')) {
         const html = fs.readFileSync(path.join(WEB_DIR, 'index.html'), 'utf-8');
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
         res.end(html);
         return;
+      }
+      if (req.method === 'GET' && !url.startsWith('/api/')) {
+        if (serveStatic(res, url.slice(1))) return;
       }
       // ---------------- API ----------------
       if (req.method === 'GET' && url === '/api/status') {

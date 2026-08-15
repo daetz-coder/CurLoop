@@ -1,248 +1,261 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-bs-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>curloop · CursorHarness Web</title>
+<title>curloop · CursorHarness</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1117'/%3E%3Cpath d='M7 9l4 7-4 7M13 9l4 7-4 7' stroke='%2339c5cf' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M19 9l6 14' stroke='%2358a6ff' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="vendor/tabler/tabler.min.css">
 <style>
-:root{
-  --bg:#0b0f17; --bg2:#0d1117; --panel:#121826; --panel2:#1a2235; --line:#253047;
-  --line2:#2f3b57; --text:#e8eef7; --dim:#8b98b2; --faint:#5c6a86;
-  --accent:#58a6ff; --green:#3fb950; --red:#f85149; --yellow:#e3b341;
-  --cyan:#39c5cf; --magenta:#bc8cff; --orange:#f0883e;
-  --radius:12px; --shadow:0 4px 18px rgba(0,0,0,.35);
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html{-webkit-text-size-adjust:100%}
-body{background:radial-gradient(1200px 500px at 20% -10%, #131c30 0%, var(--bg) 55%);color:var(--text);
-  font:14px/1.55 "Segoe UI","Microsoft YaHei",system-ui,sans-serif;padding:18px;min-height:100vh}
-a{color:var(--accent);text-decoration:none}
-code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px}
+:root{ --t-faint:#8b98b2; --t-line:#253047; --term-bg:#070b14; }
+html,body{height:100%}
+body{background:radial-gradient(1200px 500px at 15% -10%, #141d33 0%, #0b0f17 55%) fixed}
+.page{min-height:100%}
+.navbar{background:rgba(11,15,23,.75);backdrop-filter:blur(8px);border-bottom:1px solid var(--t-line)}
+.navbar-brand{font-weight:800;letter-spacing:.3px}
+.brand-grad{background:linear-gradient(90deg,#39c5cf,#58a6ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.page-title{font-size:20px;font-weight:700}
+.page-title small{display:block;color:var(--t-faint);font-weight:400;font-size:12px;font-family:Consolas,"Courier New",monospace;margin-top:2px}
+#h-project{color:var(--t-faint);font-family:Consolas,monospace;font-size:12px}
 
-/* ---------- header ---------- */
-header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
-.logo{display:flex;align-items:center;gap:10px;font-size:21px;font-weight:800;letter-spacing:.3px;
-  background:linear-gradient(90deg,var(--cyan),var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent}
-.logo svg{width:26px;height:26px;flex:none}
-.logo span{color:var(--dim);font-weight:400;font-size:12px;letter-spacing:0}
-.badge{padding:3px 11px;border-radius:999px;font-size:12px;background:var(--panel);border:1px solid var(--line);color:var(--dim)}
-.badge.ok{color:var(--green);border-color:rgba(63,185,80,.45)}
-.badge.warn{color:var(--yellow);border-color:rgba(227,179,65,.45)}
-.badge.bad{color:var(--red);border-color:rgba(248,81,73,.45)}
-.badge.info{color:var(--accent);border-color:rgba(88,166,255,.45)}
-#h-project{color:var(--faint);font-family:Consolas,"Courier New",monospace;font-size:12px;margin-left:auto}
+/* stat cards */
+.stat-card{position:relative;overflow:hidden;border-radius:14px}
+.stat-card .card-body{padding:14px 16px}
+.stat-card .stat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.stat-card .stat-num{font-size:26px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat-card .stat-label{color:var(--t-faint);font-size:12px;margin-bottom:4px}
+.stat-card .stat-sub{color:var(--t-faint);font-size:11px;margin-top:2px}
 
-/* ---------- stat cards ---------- */
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
-.card{background:linear-gradient(180deg,var(--panel),var(--panel));border:1px solid var(--line);
-  border-radius:var(--radius);padding:12px 16px;box-shadow:var(--shadow);position:relative;overflow:hidden;
-  transition:transform .15s ease,border-color .15s ease}
-.card:hover{transform:translateY(-2px);border-color:var(--line2)}
-.card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cardc,#58a6ff);opacity:.8}
-.card .k{color:var(--dim);font-size:12px;display:flex;align-items:center;gap:6px}
-.card .k .dot{width:7px;height:7px;border-radius:50%;background:var(--cardc);box-shadow:0 0 8px var(--cardc)}
-.card .v{font-size:24px;font-weight:800;margin-top:3px;color:var(--cardc);font-variant-numeric:tabular-nums}
-.card .v small{font-size:11px;color:var(--faint);font-weight:400;margin-left:2px}
+/* panels */
+.card{border-radius:14px}
+.card-header{font-weight:700;font-size:13px;letter-spacing:.4px;display:flex;align-items:center;gap:8px}
+.card-header .card-title{margin:0}
 
-/* ---------- layout & panels ---------- */
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
-@media(max-width:1100px){.grid{grid-template-columns:1fr}}
-.panel{background:linear-gradient(180deg,var(--panel) 0%,#10162a 100%);border:1px solid var(--line);
-  border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
-.panel h2{font-size:13px;font-weight:700;color:var(--cyan);margin-bottom:12px;padding-bottom:8px;
-  border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;letter-spacing:.5px}
-.panel h2::before{content:"";width:4px;height:14px;border-radius:2px;background:var(--cyan)}
-.panel h3{font-size:12px;color:var(--dim);margin:14px 0 6px;font-weight:600}
+/* terminal console */
+.term{background:var(--term-bg);border:1px solid var(--t-line);border-radius:10px;overflow:hidden}
+.term-bar{display:flex;justify-content:space-between;align-items:center;background:#0d1322;border-bottom:1px solid var(--t-line);
+  padding:5px 12px;font-size:11px;color:var(--t-faint);font-family:Consolas,monospace}
+.term-bar .led{width:8px;height:8px;border-radius:50%;background:#5c6a86;display:inline-block;margin-right:7px;vertical-align:-1px}
+.term-bar .led.on{background:#3fb950;box-shadow:0 0 7px #3fb950;animation:pulse 1.6s infinite}
+@keyframes pulse{50%{opacity:.4}}
+.term-out{height:300px;overflow-y:auto;padding:10px 14px;font:12px/1.65 Consolas,"Cascadia Mono","Courier New",monospace;white-space:pre-wrap;word-break:break-all;color:#c9d4e3}
+.term-out::-webkit-scrollbar{width:9px}.term-out::-webkit-scrollbar-thumb{background:#253047;border-radius:4px}
 
-/* ---------- forms & buttons ---------- */
-label{color:var(--faint);font-size:12px;display:block;margin:6px 0 2px}
-input,select,textarea{background:var(--bg2);border:1px solid var(--line);color:var(--text);
-  border-radius:8px;padding:7px 10px;font:inherit;width:100%;transition:border-color .15s}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
-textarea{font-family:Consolas,"Courier New",monospace;min-height:70px;resize:vertical}
-button{background:var(--panel2);border:1px solid var(--line2);color:var(--text);border-radius:8px;
-  padding:8px 16px;cursor:pointer;font:inherit;font-size:13px;transition:all .15s ease}
-button:hover{border-color:var(--accent);transform:translateY(-1px)}
-button:active{transform:translateY(0)}
-button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-button.primary{background:linear-gradient(180deg,#2563eb,#1f6feb);border-color:#1f6feb;color:#fff}
-button.primary:hover{background:linear-gradient(180deg,#2f6ff0,#2a76f5);box-shadow:0 0 14px rgba(31,111,235,.4)}
-button.danger{background:linear-gradient(180deg,#8a2f2f,#7d2828);border-color:#8a2f2f;color:#fff}
-button.danger:hover{background:linear-gradient(180deg,#9c3535,#8f2f2f);box-shadow:0 0 14px rgba(248,81,73,.3)}
-button:disabled{opacity:.45;cursor:not-allowed;transform:none}
-button.mini{padding:3px 10px;font-size:12px;float:right}
-.row{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin:8px 0}
-.row .grow{flex:1}
-details{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-top:12px}
-details[open]{border-color:var(--line2)}
-summary{cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;user-select:none}
+/* queue */
+.queue-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px dashed var(--t-line);font-size:13px}
+.queue-item:last-child{border-bottom:none}
 
-/* ---------- console ---------- */
-.console-wrap{position:relative}
-.console-bar{display:flex;justify-content:space-between;align-items:center;background:var(--bg2);
-  border:1px solid var(--line);border-bottom:none;border-radius:8px 8px 0 0;padding:4px 10px;font-size:11px;color:var(--faint)}
-.console-bar .led{width:8px;height:8px;border-radius:50%;background:var(--faint);display:inline-block;margin-right:6px;vertical-align:-1px}
-.console-bar .led.on{background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 1.6s infinite}
-@keyframes pulse{50%{opacity:.45}}
-.console{background:#060a12;border:1px solid var(--line);border-radius:0 0 8px 8px;padding:8px 12px;
-  font:12px/1.6 Consolas,"Cascadia Mono","Courier New",monospace;height:290px;overflow-y:auto;white-space:pre-wrap;word-break:break-all}
-.console::-webkit-scrollbar{width:9px}
-.console::-webkit-scrollbar-thumb{background:var(--line2);border-radius:4px}
-.console::-webkit-scrollbar-track{background:transparent}
+/* events table */
+.table-vcenter td,.table-vcenter th{vertical-align:middle}
+.ev-detail{color:var(--t-faint);font-size:12px}
 
-/* ---------- queue / accounts ---------- */
-ul#queue, #accounts{list-style:none}
-ul#queue li{padding:6px 8px;border-bottom:1px dashed var(--line);font-size:13px;border-radius:6px}
-ul#queue li:hover{background:var(--panel2)}
-ul#queue li:last-child{border-bottom:none}
-#accounts .acct{padding:5px 8px;font-size:13px;border-bottom:1px dashed var(--line);display:flex;align-items:center;gap:6px}
-#accounts .acct:last-child{border-bottom:none}
-#accounts .acct::before{content:"◈";color:var(--cyan)}
+/* report */
+#report{font:12px/1.6 Consolas,monospace;white-space:pre-wrap;word-break:break-all;max-height:280px;overflow:auto;background:var(--term-bg);border:1px solid var(--t-line);border-radius:8px;padding:10px}
 
-/* ---------- events table ---------- */
-table{width:100%;border-collapse:collapse;font-size:12px}
-th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
-tbody tr:nth-child(even){background:rgba(255,255,255,.015)}
-tbody tr:hover{background:var(--panel2)}
-th{color:var(--faint);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
-.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap}
-.pill.ok{background:rgba(63,185,80,.14);color:var(--green)}
-.pill.fail{background:rgba(248,81,73,.14);color:var(--red)}
-.pill.run{background:rgba(57,197,207,.14);color:var(--cyan)}
-.pill.wait{background:rgba(227,179,65,.14);color:var(--yellow)}
-.pill.dim{background:rgba(139,152,178,.12);color:var(--dim)}
+/* charts */
+.chart{width:100%;height:300px}
+.chart-sm{width:100%;height:170px}
+.tl-hint{color:var(--t-faint);font-size:12px;margin-top:6px}
 
-/* ---------- timeline ---------- */
-.legend{display:flex;gap:14px;flex-wrap:wrap;margin:4px 0 10px;font-size:12px;color:var(--dim)}
-.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
-#timeline{width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:10px;margin-top:4px}
-.hint{color:var(--faint);font-size:12px;margin-top:8px}
-
-/* ---------- report ---------- */
-#report{font:12px/1.6 Consolas,"Courier New",monospace;white-space:pre-wrap;word-break:break-all;max-height:260px;
-  overflow:auto;background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:10px}
-#report::-webkit-scrollbar{width:9px}
-#report::-webkit-scrollbar-thumb{background:var(--line2);border-radius:4px}
-
-/* ---------- misc ---------- */
-.spin{display:inline-block;width:10px;height:10px;border:2px solid var(--dim);border-top-color:var(--accent);
-  border-radius:50%;animation:spin 1s linear infinite;vertical-align:-1px}
-@keyframes spin{to{transform:rotate(360deg)}}
-footer{margin-top:18px;padding-top:12px;border-top:1px solid var(--line);color:var(--faint);font-size:12px;text-align:center}
+.footer{color:var(--t-faint);font-size:12px;text-align:center;padding:16px 0;border-top:1px solid var(--t-line);margin-top:20px}
+details.card{padding:0}
+details.card summary{cursor:pointer;padding:10px 14px;font-weight:600;color:var(--t-primary,#4299e1);list-style:none;display:flex;align-items:center;gap:8px}
+details.card summary::-webkit-details-marker{display:none}
+details.card summary::before{content:"▸";transition:transform .15s}
+details.card[open] summary::before{transform:rotate(90deg)}
+details.card .card-body{padding:0 14px 14px}
 </style>
 </head>
 <body>
-<header>
-  <div class="logo">
-    <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="7" fill="#0d1117"/><path d="M7 9l4 7-4 7M13 9l4 7-4 7" stroke="#39c5cf" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 9l6 14" stroke="#58a6ff" stroke-width="2.4" stroke-linecap="round"/></svg>
-    curloop <span>CursorHarness Web</span>
-  </div>
-  <span class="badge info" id="h-mode">mode —</span>
-  <span class="badge" id="h-admin">权限检测中…</span>
-  <span class="badge" id="h-run">未运行</span>
-  <span class="badge ok" id="h-conn">已连接</span>
-  <span id="h-project">—</span>
-</header>
+<div class="page">
+  <header class="navbar navbar-expand d-print-none sticky-top">
+    <div class="container-xl">
+      <a class="navbar-brand" href="#">
+        <svg width="26" height="26" viewBox="0 0 32 32" fill="none" style="margin-right:8px;vertical-align:-6px"><rect width="32" height="32" rx="7" fill="#0d1117"/><path d="M7 9l4 7-4 7M13 9l4 7-4 7" stroke="#39c5cf" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 9l6 14" stroke="#58a6ff" stroke-width="2.4" stroke-linecap="round"/></svg>
+        <span class="brand-grad">curloop</span>
+        <span class="text-secondary" style="font-size:12px;font-weight:400;margin-left:6px">CursorHarness</span>
+      </a>
+      <div class="navbar-nav flex-row align-items-center gap-2 ms-auto">
+        <span class="badge text-bg-info" id="h-mode">mode —</span>
+        <span class="badge text-bg-secondary" id="h-admin">权限检测中…</span>
+        <span class="badge text-bg-secondary" id="h-run">未运行</span>
+        <span class="badge text-bg-success" id="h-conn">已连接</span>
+      </div>
+    </div>
+  </header>
 
-<section class="cards" id="cards"></section>
-
-<div class="grid">
-  <div class="panel">
-    <h2>控制台</h2>
-    <form id="run-form">
-      <div class="row">
-        <div class="grow"><label>模式</label>
-          <select id="f-mode">
-            <option value="dry-run">dry-run（只读预览）</option>
-            <option value="live">live（无人值守，需管理员）</option>
-            <option value="limit-sim">limit-sim（换号链路测试，需管理员）</option>
-          </select>
+  <div class="page-wrapper">
+    <div class="container-xl py-3">
+      <!-- page header -->
+      <div class="page-header d-flex align-items-center justify-content-between mb-3">
+        <h1 class="page-title">无人值守 Cursor 编码循环
+          <small id="h-project">—</small>
+        </h1>
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-secondary btn-sm" id="btn-report">查看结束报告</button>
+          <button class="btn btn-outline-light btn-sm" id="btn-refresh">⟳ 刷新</button>
         </div>
-        <div class="grow"><label>目标项目</label><input id="f-project" placeholder="默认：当前项目"></div>
-        <div><label>最大任务数</label><input id="f-tasks" type="number" min="0" placeholder="0=不限" style="width:110px"></div>
-        <div><label>最大换号</label><input id="f-switches" type="number" min="0" placeholder="0=不限" style="width:110px"></div>
       </div>
-      <div class="row">
-        <button type="submit" class="primary" id="btn-run">▶ 开始运行</button>
-        <button type="button" class="danger" id="btn-stop" disabled>■ 停止（STOP）</button>
-        <button type="button" id="btn-plan">📋 只生成 TODO（plan）</button>
-        <button type="button" id="btn-refresh">⟳ 刷新</button>
+
+      <!-- stat cards -->
+      <div class="row g-3 mb-3" id="cards"></div>
+
+      <!-- control + charts -->
+      <div class="row g-3 mb-3">
+        <div class="col-xl-5 col-lg-6">
+          <div class="card">
+            <div class="card-header"><span class="card-title">控制台</span></div>
+            <div class="card-body">
+              <form id="run-form">
+                <div class="row g-2 mb-2">
+                  <div class="col-md-4"><label class="form-label">模式</label>
+                    <select class="form-select form-select-sm" id="f-mode">
+                      <option value="dry-run">dry-run（只读预览）</option>
+                      <option value="live">live（无人值守，需管理员）</option>
+                      <option value="limit-sim">limit-sim（换号链路测试，需管理员）</option>
+                    </select>
+                  </div>
+                  <div class="col-md-5"><label class="form-label">目标项目</label>
+                    <input class="form-control form-control-sm" id="f-project" placeholder="默认：当前项目">
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">上限</label>
+                    <div class="input-group input-group-sm">
+                      <input class="form-control" id="f-tasks" type="number" min="0" placeholder="任务" style="width:70px">
+                      <input class="form-control" id="f-switches" type="number" min="0" placeholder="换号" style="width:70px">
+                    </div>
+                  </div>
+                </div>
+                <div class="d-flex gap-2 flex-wrap">
+                  <button type="submit" class="btn btn-primary btn-sm px-3" id="btn-run">▶ 开始运行</button>
+                  <button type="button" class="btn btn-danger btn-sm px-3" id="btn-stop" disabled>■ 停止</button>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-plan">📋 只生成 TODO</button>
+                </div>
+              </form>
+            </div>
+            <div class="card-body pt-0">
+              <details class="card mb-2" id="init-box">
+                <summary>初始化项目（FinalGoal / TODO 模板）</summary>
+                <div class="card-body">
+                  <label class="form-label">最终目标（可多行；留空生成模板）</label>
+                  <textarea class="form-control mb-2" id="f-goal" rows="3" placeholder="例如：用 TypeScript 完成一个 CLI 工具并发布到 npm…"></textarea>
+                  <button type="button" class="btn btn-outline-success btn-sm" id="btn-init">生成</button>
+                </div>
+              </details>
+              <details class="card" id="ask-box">
+                <summary>手动向 Cursor 发送消息（人在回路 / 调试）</summary>
+                <div class="card-body">
+                  <label class="form-label">消息内容（发送到 Cursor 当前会话；需 Cursor 带 CDP 运行）</label>
+                  <textarea class="form-control mb-2" id="f-ask" rows="2" placeholder="例如：现在项目进度如何？先别改代码，只回答。"></textarea>
+                  <button type="button" class="btn btn-outline-info btn-sm" id="btn-ask">发送</button>
+                </div>
+              </details>
+            </div>
+            <div class="card-body pt-0">
+              <h6 class="text-secondary mb-2">运行输出 · 子进程实时日志</h6>
+              <div class="term">
+                <div class="term-bar">
+                  <span><span class="led" id="console-led"></span><span id="console-status">空闲</span></span>
+                  <span id="console-count">0 行</span>
+                </div>
+                <div class="term-out" id="console"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-xl-7 col-lg-6">
+          <div class="card mb-3">
+            <div class="card-header"><span class="card-title">轨迹时间线 · 最近一次 run</span></div>
+            <div class="card-body">
+              <div id="timeline" class="chart"></div>
+              <div class="d-flex gap-3 flex-wrap mt-1" style="font-size:12px;color:var(--t-faint)">
+                <span><i class="d-inline-block me-1" style="width:10px;height:10px;border-radius:3px;background:#3fb950"></i>完成任务</span>
+                <span><i class="d-inline-block me-1" style="width:10px;height:10px;border-radius:3px;background:#f85149"></i>跳过/出错</span>
+                <span><i class="d-inline-block me-1" style="width:10px;height:10px;border-radius:3px;background:#e3b341"></i>进行中</span>
+                <span><i class="d-inline-block me-1" style="width:10px;height:10px;border-radius:50%;background:#3fb950"></i>换号成功</span>
+                <span><i class="d-inline-block me-1" style="width:10px;height:10px;border-radius:50%;background:#f85149"></i>换号失败</span>
+                <span><i class="d-inline-block me-1" style="width:10px;height:10px;border-radius:50%;background:#58a6ff"></i>发送</span>
+              </div>
+              <p class="tl-hint mb-0" id="tl-hint">加载中…</p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">近 24 小时活动</span></div>
+            <div class="card-body">
+              <div id="activity" class="chart-sm"></div>
+              <p class="tl-hint mb-0" id="act-hint">加载中…</p>
+            </div>
+          </div>
+        </div>
       </div>
-    </form>
-    <details id="init-box">
-      <summary>初始化项目（生成 FinalGoal.md / TODO.md 模板）</summary>
-      <label>最终目标（可多行；留空则生成模板）</label>
-      <textarea id="f-goal" placeholder="例如：用 TypeScript 重写一个 CLI 工具并发布到 npm…"></textarea>
-      <div class="row"><button type="button" id="btn-init">生成</button></div>
-    </details>
-    <details id="ask-box">
-      <summary>手动向 Cursor 发送消息（人在回路 / 调试）</summary>
-      <label>消息内容（发送到 Cursor 当前会话；需要 Cursor 带 CDP 运行）</label>
-      <textarea id="f-ask" placeholder="例如：现在项目进度如何？先别改代码，只回答。"></textarea>
-      <div class="row"><button type="button" id="btn-ask">发送</button></div>
-    </details>
-    <h3>运行输出（子进程实时日志）</h3>
-    <div class="console-wrap">
-      <div class="console-bar"><span><span class="led" id="console-led"></span><span id="console-status">空闲</span></span><span id="console-count">0 行</span></div>
-      <div class="console" id="console"></div>
+
+      <!-- queue / accounts / events -->
+      <div class="row g-3 mb-3">
+        <div class="col-lg-4">
+          <div class="card h-100">
+            <div class="card-header"><span class="card-title">TODO 队列</span></div>
+            <div class="card-body p-0" id="queue"><div class="p-3 text-secondary">加载中…</div></div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="card h-100">
+            <div class="card-header"><span class="card-title">账号 / 换号</span></div>
+            <div class="card-body p-0" id="accounts"><div class="p-3 text-secondary">加载中…</div></div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="card h-100">
+            <div class="card-header"><span class="card-title">最近事件</span></div>
+            <div class="table-responsive" style="max-height:320px;overflow-y:auto">
+              <table class="table table-sm table-vcenter card-table">
+                <thead><tr><th style="width:64px">时间</th><th style="width:130px">事件</th><th>详情</th></tr></thead>
+                <tbody id="events"><tr><td colspan="3" class="text-secondary">加载中…</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- report + help -->
+      <div class="row g-3">
+        <div class="col-lg-6">
+          <div class="card h-100">
+            <div class="card-header"><span class="card-title">结束报告 · report.json</span></div>
+            <div class="card-body"><pre id="report">（运行正常结束后自动生成）</pre></div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card h-100">
+            <div class="card-header"><span class="card-title">说明</span></div>
+            <div class="card-body text-secondary" style="font-size:13px">
+              <p class="mb-1">· 运行/规划通过子进程执行 <code>curloop run/plan</code>，日志实时回传，刷新页面不中断。</p>
+              <p class="mb-1">· 停止 = 写入 <code>STOP</code> 文件，loop 优雅收尾（退出码 2），删除文件可取消。</p>
+              <p class="mb-1">· live / limit-sim 需要管理员：请用管理员终端运行 <code>curloop web</code>。</p>
+              <p class="mb-1">· 长对话：<code>thread.rotate_every_tasks</code> 每 N 个任务自动 New Chat + 续接
+                （HARNESS_STATE.md + git + 剩余 TODO）；<code>prompt.checkpoint_every_tasks</code> 定期写进度小结。</p>
+              <p class="mb-0">· 时间线/活动图由 events.jsonl 客户端渲染（ECharts），支持滚轮缩放与拖拽。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="footer">curloop · CursorHarness Web · 数据源 %APPDATA%\curloop\runstate · 仅绑定 127.0.0.1</footer>
     </div>
   </div>
-
-  <div class="panel">
-    <h2>轨迹时间线（最近一次 run）</h2>
-    <div class="legend">
-      <span><i style="background:#3fb950"></i>完成任务</span>
-      <span><i style="background:#f85149"></i>跳过/出错</span>
-      <span><i style="background:#e3b341"></i>进行中</span>
-      <span><i style="background:#3fb950;border-radius:50%"></i>换号成功</span>
-      <span><i style="background:#f85149;border-radius:50%"></i>换号失败</span>
-      <span><i style="background:#58a6ff;border-radius:50%"></i>发送</span>
-    </div>
-    <svg id="timeline" viewBox="0 0 940 240" preserveAspectRatio="xMidYMid meet"></svg>
-    <p class="hint" id="tl-hint">加载中…</p>
-    <h3>账号 / 换号</h3>
-    <div id="accounts"></div>
-  </div>
 </div>
 
-<div class="grid">
-  <div class="panel">
-    <h2>TODO 队列</h2>
-    <ul id="queue"><li class="ev-dim">加载中…</li></ul>
-  </div>
-  <div class="panel">
-    <h2>最近事件 <button class="mini" id="btn-report">查看结束报告</button></h2>
-    <table><thead><tr><th style="width:70px">时间</th><th style="width:150px">事件</th><th>详情</th></tr></thead>
-    <tbody id="events"><tr><td colspan="3" class="hint">加载中…</td></tr></tbody></table>
-  </div>
-</div>
-
-<div class="grid">
-  <div class="panel">
-    <h2>结束报告（report.json）</h2>
-    <pre id="report">（运行正常结束后自动生成；也可点上方按钮查看）</pre>
-  </div>
-  <div class="panel">
-    <h2>说明</h2>
-    <p class="hint">· 运行/规划通过子进程执行 <code>curloop run/plan</code>，日志实时回传，刷新页面不中断。<br>
-    · 停止 = 写入 <code>STOP</code> 文件，loop 优雅收尾（退出码 2），删除文件可取消。<br>
-    · live / limit-sim 需要管理员：请用管理员终端运行 <code>curloop web</code>。<br>
-    · 长对话：配置 <code>thread.rotate_every_tasks</code> 可每 N 个任务自动点 New Chat + 续接
-      （HARNESS_STATE.md 记忆 + git + 剩余 TODO）；<code>prompt.checkpoint_every_tasks</code> 让 Agent 定期写进度小结。<br>
-    · 轨迹时间线由 events.jsonl 渲染：绿条=完成任务、红条=跳过/出错、黄条=进行中、菱形=换号成功、✗=换号失败。</p>
-  </div>
-</div>
-
-<footer>curloop · CursorHarness Web · 数据源 %APPDATA%\curloop\runstate · 仅绑定 127.0.0.1</footer>
-
+<script src="vendor/tabler/tabler.min.js"></script>
+<script src="vendor/echarts/echarts.min.js"></script>
 <script>
 'use strict';
 const $ = (id) => document.getElementById(id);
 const state = { since: 0, eventsKey: '', lastReportTs: 0, connDown: false };
+let timelineChart = null, activityChart = null;
 
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function ts2h(ts){ const d=new Date(Number(ts)*1000); const p=(x)=>String(x).padStart(2,'0'); return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
+function fmtDur(sec){ sec=Math.max(0,Math.round(sec)); if(sec<60) return sec+'s'; if(sec<3600) return Math.floor(sec/60)+'m'+String(sec%60).padStart(2,'0')+'s'; return Math.floor(sec/3600)+'h'+String(Math.floor(sec%3600/60)).padStart(2,'0')+'m'; }
 async function api(url, opts){
   try {
     const r = await fetch(url, opts);
@@ -259,47 +272,52 @@ function setConn(up){
     state.connDown = !up;
     const el = $('h-conn');
     el.textContent = up ? '已连接' : '连接断开';
-    el.className = 'badge ' + (up ? 'ok' : 'bad');
+    el.className = 'badge ' + (up ? 'text-bg-success' : 'text-bg-danger');
   }
 }
 
+// ------------------------------------------------------------ status ----
 async function refreshStatus(){
   const d = await api('/api/status');
   if(!d.ok) return;
   $('h-project').textContent = d.project + '  ·  runstate: ' + d.stateDir;
   $('h-mode').textContent = 'mode ' + (d.config.mode || '—');
-  $('h-admin').textContent = d.admin ? '管理员 ✓（live/limit-sim 可用）' : '非管理员（仅 dry-run/只读）';
-  $('h-admin').className = 'badge ' + (d.admin ? 'ok' : 'warn');
+  $('h-admin').textContent = d.admin ? '管理员 ✓' : '非管理员（仅 dry-run）';
+  $('h-admin').className = 'badge ' + (d.admin ? 'text-bg-success' : 'text-bg-warning');
   $('h-run').textContent = d.running ? '运行中（' + d.runKind + '）' : (d.exitCode != null ? '上次退出码 ' + d.exitCode : '未运行');
-  $('h-run').className = 'badge ' + (d.running ? 'warn' : 'ok');
+  $('h-run').className = 'badge ' + (d.running ? 'text-bg-warning' : 'text-bg-secondary');
   $('btn-run').disabled = d.running;
   $('btn-stop').disabled = !d.running;
   $('btn-plan').disabled = d.running;
 
   const s = d.status.stats;
   const cards = [
-    ['换号', s.switches, s.switch_ok + ' 成功 / ' + s.switch_failed + ' 失败', '#58a6ff'],
-    ['对话发送', s.sends, '当前 run', '#39c5cf'],
-    ['任务完成', s.tasks_done, '续接 ' + s.extend_ok, '#3fb950'],
-    ['队列', d.status.queue.length, '项待执行', '#bc8cff'],
-    ['运行状态', d.status.running, '刷新 ' + d.status.now, s.switch_failed > 0 ? '#e3b341' : '#3fb950'],
+    { k:'换号', v:s.switches, sub:s.switch_ok+' 成功 / '+s.switch_failed+' 失败', icon:'🔄', bg:'bg-primary-subtle', color:'text-primary' },
+    { k:'对话发送', v:s.sends, sub:'当前 run', icon:'✉️', bg:'bg-cyan-subtle', color:'text-cyan' },
+    { k:'任务完成', v:s.tasks_done, sub:'续接 '+s.extend_ok, icon:'✅', bg:'bg-success-subtle', color:'text-success' },
+    { k:'队列', v:d.status.queue.length, sub:'项待执行', icon:'📋', bg:'bg-purple-subtle', color:'text-purple' },
+    { k:'运行状态', v:d.status.running, sub:'刷新 '+d.status.now, icon:'⏱️', bg:'bg-warning-subtle', color:'text-warning' },
   ];
   $('cards').innerHTML = cards.map(c =>
-    '<div class="card" style="--cardc:' + c[3] + '"><div class="k"><span class="dot"></span>' + c[0] + '</div><div class="v">' + c[1] + ' <small>' + esc(c[2]) + '</small></div></div>'
+    '<div class="col-6 col-md-4 col-xl"><div class="card stat-card h-100"><div class="card-body d-flex gap-3 align-items-center">' +
+    '<div class="stat-icon '+c.bg+' '+c.color+'">'+c.icon+'</div>' +
+    '<div><div class="stat-label">'+c.k+'</div><div class="stat-num '+c.color+'">'+c.v+'</div>' +
+    '<div class="stat-sub">'+esc(c.sub)+'</div></div></div></div></div>'
   ).join('');
 
   const q = d.status.queue;
   $('queue').innerHTML = q.length ? q.map(x => {
-    const mk = {done:'<span class="pill ok">✓ done</span>', running:'<span class="pill run">▶ running</span>', pending:'<span class="pill dim">○ pending</span>', skipped:'<span class="pill fail">✗ skipped</span>'};
-    return '<li>' + (mk[x.status] || '<span class="pill dim">' + esc(x.status) + '</span>') + '  ' + esc(x.text) + (x.retries ? ' <span class="pill wait">重试 ' + x.retries + '</span>' : '') + '</li>';
-  }).join('') : '<li class="hint">（空）</li>';
+    const mk = {done:'<span class="badge text-bg-success">✓ done</span>', running:'<span class="badge text-bg-info">▶ running</span>', pending:'<span class="badge text-bg-secondary">○ pending</span>', skipped:'<span class="badge text-bg-danger">✗ skipped</span>'};
+    return '<div class="queue-item">' + (mk[x.status] || '<span class="badge text-bg-secondary">'+esc(x.status)+'</span>') + '<span class="flex-grow-1">' + esc(x.text) + '</span>' + (x.retries ? '<span class="badge text-bg-warning">重试 '+x.retries+'</span>' : '') + '</div>';
+  }).join('') : '<div class="p-3 text-secondary">（空）</div>';
 
   $('accounts').innerHTML = (s.emails && s.emails.length)
-    ? s.emails.slice(-8).map(e => '<div class="acct">' + esc(e) + '</div>').join('')
-    : '<div class="hint">暂无换号成功记录</div>';
+    ? s.emails.slice(-8).map(e => '<div class="queue-item"><span class="text-info">◈</span>' + esc(e) + '</div>').join('')
+    : '<div class="p-3 text-secondary">暂无换号成功记录</div>';
   return d;
 }
 
+// ------------------------------------------------------------ events ----
 async function refreshEvents(){
   const d = await api('/api/events?n=200');
   if(!d.ok) return;
@@ -308,17 +326,18 @@ async function refreshEvents(){
   state.eventsKey = key;
   const rows = d.events.slice(0, 60).map(e => {
     const ev = String(e.event || '');
-    let pill = 'dim';
-    if(/fail|error|abort/.test(ev)) pill = 'fail';
-    else if(/done|ok|sent/.test(ev)) pill = 'ok';
-    else if(/start|switch|run/.test(ev)) pill = 'run';
-    else if(/wait|poll|cooldown|extend|checkpoint/.test(ev)) pill = 'wait';
+    let bg = 'text-bg-secondary';
+    if(/fail|error|abort/.test(ev)) bg = 'text-bg-danger';
+    else if(/done|ok|sent/.test(ev)) bg = 'text-bg-success';
+    else if(/start|switch|run/.test(ev)) bg = 'text-bg-info';
+    else if(/wait|poll|cooldown|extend|checkpoint/.test(ev)) bg = 'text-bg-warning';
     const detail = [e.detail, e.reason, e.task].map(v => v ? String(v) : '').find(Boolean) || '';
-    return '<tr><td class="hint">' + ts2h(e.ts) + '</td><td><span class="pill ' + pill + '">' + esc(ev) + '</span></td><td>' + esc(String(detail).slice(0,80)) + '</td></tr>';
+    return '<tr><td class="text-secondary">' + ts2h(e.ts) + '</td><td><span class="badge ' + bg + '">' + esc(ev) + '</span></td><td class="ev-detail">' + esc(String(detail).slice(0,80)) + '</td></tr>';
   }).join('');
-  $('events').innerHTML = rows;
+  $('events').innerHTML = rows || '<tr><td colspan="3" class="text-secondary">（空）</td></tr>';
 }
 
+// ------------------------------------------------------------ console ----
 async function refreshConsole(){
   const d = await api('/api/console?since=' + state.since);
   if(!d.ok) return;
@@ -348,11 +367,9 @@ async function loadReport(){
   $('report').textContent = d.report ? JSON.stringify(d.report, null, 2) : '（暂无 report.json）';
 }
 
-// ------------------------------------------------------------ timeline ----
-function buildTimeline(evs){
-  const svg = $('timeline');
-  const W = 940, H = 240, padL = 70, padR = 20, padT = 18, padB = 24;
-  const chrono = evs.slice().reverse(); // events 接口已倒序，这里还原为时间正序
+// ------------------------------------------------------------ charts ----
+function prepareTrajectory(evs){
+  const chrono = evs.slice().reverse();
   let startTs = 0;
   for(const e of chrono){ if(e.event === 'run_start'){ startTs = Number(e.ts); break; } }
   let endTs = Date.now()/1000;
@@ -360,73 +377,146 @@ function buildTimeline(evs){
     if(e.event === 'run_done' || e.event === 'run_abort' || e.event === 'interrupt'){ endTs = Number(e.ts); break; }
   }
   const t0 = startTs || (chrono.length ? Number(chrono[0].ts) : 0);
-  const dur = Math.max(30, endTs - t0);
-  const x = (ts) => padL + ((Number(ts) - t0) / dur) * (W - padL - padR);
-  let svgContent = '';
-  const grid = 4;
-  for(let i=0;i<=grid;i++){
-    const gx = padL + i*(W-padL-padR)/grid;
-    const gt = t0 + dur*i/grid;
-    svgContent += '<line x1="'+gx+'" y1="'+padT+'" x2="'+gx+'" y2="'+(H-padB)+'" stroke="#1c2436" stroke-width="1"/>';
-    svgContent += '<text x="'+gx+'" y="'+(H-6)+'" fill="#5c6a86" font-size="10" text-anchor="middle">'+ts2h(gt)+'</text>';
-  }
   const pending = [];
   const bars = [];
-  const markers = [];
+  const markers = { ok:[], fail:[], sent:[], ext:[] };
   for(const e of chrono){
     const ev = String(e.event || '');
     if(ev === 'task_start'){
       pending.push({ ts: Number(e.ts), text: String(e.task || '') });
     } else if(ev === 'task_done' || ev === 'task_skipped' || ev === 'task_error'){
       const st = pending.shift();
-      if(st){
-        bars.push({ start: st.ts, end: Number(e.ts) || endTs, text: st.text, kind: ev });
-      }
-    } else if(ev === 'switch_ok'){
-      markers.push({ ts: Number(e.ts), kind: 'ok', label: String(e.email || '') });
-    } else if(ev === 'switch_failed'){
-      markers.push({ ts: Number(e.ts), kind: 'fail', label: '' });
-    } else if(ev === 'sent'){
-      markers.push({ ts: Number(e.ts), kind: 'sent', label: '' });
-    } else if(ev === 'extend_result' || ev === 'checkpoint'){
-      markers.push({ ts: Number(e.ts), kind: 'ext', label: '' });
-    }
+      if(st) bars.push({ start: st.ts, end: Number(e.ts) || endTs, text: st.text, kind: ev });
+    } else if(ev === 'switch_ok') markers.ok.push({ ts: Number(e.ts), name: String(e.email || '换号成功') });
+    else if(ev === 'switch_failed') markers.fail.push({ ts: Number(e.ts), name: '换号失败' });
+    else if(ev === 'sent') markers.sent.push({ ts: Number(e.ts), name: '发送' });
+    else if(ev === 'extend_result' || ev === 'checkpoint') markers.ext.push({ ts: Number(e.ts), name: ev });
   }
+  return { t0, endTs, bars, markers, hasRun: Boolean(startTs) };
+}
+
+function renderTimeline(evs){
+  const el = $('timeline');
+  if(!window.echarts) return;
+  timelineChart = timelineChart || echarts.init(el, 'dark');
+  const { t0, endTs, bars, markers, hasRun } = prepareTrajectory(evs);
+  const dur = Math.max(30, endTs - t0);
+  const tMax = Math.max(t0 + 30, endTs);
   const rows = Math.min(6, Math.max(1, bars.length));
-  const rowH = (H - padT - padB - 14) / rows;
-  bars.forEach((b, i) => {
-    const y = padT + (i % rows) * rowH + 4;
-    const x1 = x(Math.max(b.start, t0)), x2 = x(Math.min(b.end, t0 + dur));
-    const color = b.kind === 'task_done' ? '#3fb950' : b.kind === 'task_skipped' ? '#f85149' : '#e3b341';
-    svgContent += '<rect x="'+x1+'" y="'+y+'" width="'+Math.max(2, x2-x1)+'" height="'+Math.max(4, rowH-8)+'" rx="3" fill="'+color+'" opacity="0.85"/>';
-    if(x2 - x1 > 70){
-      svgContent += '<text x="'+(x1+6)+'" y="'+(y+rowH/2+3)+'" fill="#060a12" font-size="10" font-weight="600">'+esc(String(b.text).slice(0,26))+'</text>';
-    }
-  });
-  for(const m of markers){
-    const mx = x(Math.min(m.ts, t0 + dur));
-    const my = H - padB - 6;
-    if(m.kind === 'ok'){
-      svgContent += '<path d="M'+mx+' '+(my-5)+' L'+(mx+5)+' '+my+' L'+mx+' '+(my+5)+' L'+(mx-5)+' '+my+' Z" fill="#3fb950"/>';
-      if(m.label) svgContent += '<text x="'+(mx+8)+'" y="'+(my+3)+'" fill="#3fb950" font-size="9">'+esc(m.label.slice(0,22))+'</text>';
-    } else if(m.kind === 'fail'){
-      svgContent += '<text x="'+(mx-4)+'" y="'+(my+4)+'" fill="#f85149" font-size="12">✗</text>';
-    } else if(m.kind === 'ext'){
-      svgContent += '<circle cx="'+mx+'" cy="'+my+'" r="3" fill="#bc8cff"/>';
-    } else {
-      svgContent += '<circle cx="'+mx+'" cy="'+my+'" r="2.5" fill="#58a6ff"/>';
-    }
-  }
-  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
-  svg.innerHTML = svgContent;
-  $('tl-hint').textContent = startTs
-    ? 'run 开始 ' + ts2h(t0) + ' → ' + (endTs > t0 ? ts2h(endTs) : '进行中') + ' · 任务 ' + bars.length + ' 条 · 换号 ' + markers.filter(m=>m.kind==='ok').length + ' 成功 / ' + markers.filter(m=>m.kind==='fail').length + ' 失败'
+  const markerRow = rows;
+
+  const colors = { task_done:'#3fb950', task_skipped:'#f85149', task_error:'#f85149', task_running:'#e3b341' };
+  const barData = bars.map((b, i) => ({ value: [b.start, b.end, i % rows, b.text, b.kind], text: b.text, kind: b.kind }));
+  const pts = (arr, row) => arr.map(m => ({ value: [m.ts, row], name: m.name }));
+  const okPts = pts(markers.ok, markerRow), failPts = pts(markers.fail, markerRow),
+        sentPts = pts(markers.sent, markerRow), extPts = pts(markers.ext, markerRow);
+
+  const option = {
+    animation: false,
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'item',
+      confine: true,
+      formatter: (p) => {
+        if (p.seriesType === 'custom') return '<b>任务</b> ' + esc(p.data.text) + '<br/><b>时长</b> ' + fmtDur(p.data.value[1] - p.data.value[0]);
+        if (p.seriesType === 'scatter') return esc(p.data.name) + '<br/>' + ts2h(p.data.value[0]);
+        return '';
+      }
+    },
+    grid: { left: 58, right: 16, top: 14, bottom: 52 },
+    xAxis: {
+      type: 'value', min: t0, max: tMax,
+      axisLabel: { formatter: (v) => ts2h(v), color: '#8b98b2' },
+      axisLine: { lineStyle: { color: '#2f3b57' } },
+      splitLine: { lineStyle: { color: '#1b2334' } },
+    },
+    yAxis: {
+      type: 'category',
+      data: Array.from({ length: rows }, (_, i) => '任务 ' + (i + 1)).concat(['标记']),
+      axisLabel: { color: '#8b98b2', fontSize: 10 },
+      axisLine: { show: false },
+      splitLine: { show: false },
+    },
+    dataZoom: [
+      { type: 'inside', xAxisIndex: 0 },
+      { type: 'slider', xAxisIndex: 0, height: 16, bottom: 8, borderColor: '#253047', backgroundColor: '#0d1322' },
+    ],
+    series: [
+      {
+        type: 'custom', name: '任务', encode: { x: [0, 1], y: 2 },
+        renderItem: (params, api) => {
+          const row = api.value(2);
+          const start = api.coord([api.value(0), row]);
+          const end = api.coord([api.value(1), row]);
+          const size = api.size([1, 1]);
+          const h = Math.max(8, size[1] * 0.66);
+          const x = Math.min(start[0], end[0]);
+          const w = Math.max(2, Math.abs(end[0] - start[0]));
+          const kind = api.value(4);
+          return {
+            type: 'rect',
+            shape: { x, y: start[1] - h / 2, width: w, height: h, r: 4 },
+            style: api.style({ fill: colors[kind] || '#e3b341', opacity: 0.85, stroke: 'rgba(255,255,255,.12)', lineWidth: 1 }),
+          };
+        },
+        data: barData,
+      },
+      { type: 'scatter', name: '换号成功', symbol: 'diamond', symbolSize: 11, itemStyle: { color: '#3fb950' }, data: okPts },
+      { type: 'scatter', name: '换号失败', symbol: 'x', symbolSize: 11, itemStyle: { color: '#f85149' }, data: failPts },
+      { type: 'scatter', name: '发送', symbol: 'circle', symbolSize: 5, itemStyle: { color: '#58a6ff' }, data: sentPts },
+      { type: 'scatter', name: '扩展/检查点', symbol: 'circle', symbolSize: 7, itemStyle: { color: '#bc8cff' }, data: extPts },
+    ],
+  };
+  timelineChart.setOption(option, true);
+  $('tl-hint').textContent = hasRun
+    ? 'run 开始 ' + ts2h(t0) + ' → ' + (endTs > t0 ? ts2h(endTs) : '进行中') + ' · 任务 ' + bars.length + ' 条 · 换号 ' + markers.ok.length + ' 成功 / ' + markers.fail.length + ' 失败 · 支持滚轮缩放/拖拽'
     : '暂无 run 轨迹（先运行一次，或在 runstate 中有历史数据）';
 }
 
-async function refreshTimeline(){
-  const d = await api('/api/events?n=1000');
-  if(d.ok) buildTimeline(d.events);
+function renderActivity(evs){
+  const el = $('activity');
+  if(!window.echarts) return;
+  activityChart = activityChart || echarts.init(el, 'dark');
+  const nowH = Math.floor(Date.now() / 1000 / 3600) * 3600;
+  const buckets = [];
+  for(let i = 23; i >= 0; i--){
+    buckets.push({ t: nowH - i * 3600, label: ts2h(nowH - i * 3600), done: 0, sent: 0, ok: 0, fail: 0 });
+  }
+  for(const e of evs){
+    const ts = Number(e.ts); if(!ts) continue;
+    const idx = Math.round((nowH - ts) / 3600);
+    if(idx < 0 || idx > 23) continue;
+    const b = buckets[23 - idx];
+    const ev = String(e.event || '');
+    if(ev === 'task_done') b.done++;
+    else if(ev === 'sent') b.sent++;
+    else if(ev === 'switch_ok') b.ok++;
+    else if(ev === 'switch_failed') b.fail++;
+  }
+  const total = buckets.reduce((s, b) => s + b.done + b.sent + b.ok + b.fail, 0);
+  activityChart.setOption({
+    animation: false,
+    backgroundColor: 'transparent',
+    tooltip: { trigger: 'axis', confine: true },
+    legend: { data: ['完成任务','发送','换号成功','换号失败'], textStyle: { color: '#8b98b2', fontSize: 11 }, top: 0 },
+    grid: { left: 36, right: 12, top: 28, bottom: 24 },
+    xAxis: { type: 'category', data: buckets.map(b => b.label), axisLabel: { color: '#8b98b2', fontSize: 10 }, axisLine: { lineStyle: { color: '#2f3b57' } } },
+    yAxis: { type: 'value', minInterval: 1, axisLabel: { color: '#8b98b2' }, splitLine: { lineStyle: { color: '#1b2334' } } },
+    series: [
+      { name: '完成任务', type: 'bar', stack: 'a', data: buckets.map(b => b.done), itemStyle: { color: '#3fb950' }, barMaxWidth: 18 },
+      { name: '发送', type: 'bar', stack: 'a', data: buckets.map(b => b.sent), itemStyle: { color: '#58a6ff' }, barMaxWidth: 18 },
+      { name: '换号成功', type: 'bar', stack: 'a', data: buckets.map(b => b.ok), itemStyle: { color: '#39c5cf' }, barMaxWidth: 18 },
+      { name: '换号失败', type: 'bar', stack: 'a', data: buckets.map(b => b.fail), itemStyle: { color: '#f85149' }, barMaxWidth: 18 },
+    ],
+  }, true);
+  $('act-hint').textContent = total ? '近 24 小时共 ' + total + ' 次活动' : '近 24 小时无活动';
+}
+
+async function refreshCharts(){
+  const d = await api('/api/events?n=2000');
+  if(!d.ok) return;
+  renderTimeline(d.events);
+  renderActivity(d.events);
 }
 
 // ------------------------------------------------------------ controls ----
@@ -440,42 +530,38 @@ $('run-form').addEventListener('submit', async (e) => {
   };
   const r = await api('/api/run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
   if(!r.ok){
-    const box = $('console');
     const div = document.createElement('div');
     div.textContent = '[web] 启动失败: ' + (r.error || 'unknown');
-    div.style.color = 'var(--red)';
-    box.appendChild(div);
+    div.style.color = 'var(--t-red,#f85149)';
+    $('console').appendChild(div);
   }
   refreshStatus();
 });
 
 $('btn-stop').addEventListener('click', async () => {
   const r = await api('/api/stop', { method:'POST' });
-  const box = $('console');
   const div = document.createElement('div');
   div.textContent = '[web] ' + (r.ok ? '已请求停止（STOP 文件: ' + r.stopFile + '）' : '停止失败: ' + (r.error || ''));
-  div.style.color = 'var(--yellow)';
-  box.appendChild(div);
+  div.style.color = 'var(--t-yellow,#e3b341)';
+  $('console').appendChild(div);
 });
 
 $('btn-plan').addEventListener('click', async () => {
   const r = await api('/api/plan', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ project: $('f-project').value.trim() || undefined }) });
   if(!r.ok){
-    const box = $('console');
     const div = document.createElement('div');
     div.textContent = '[web] plan 启动失败: ' + (r.error || '');
-    div.style.color = 'var(--red)';
-    box.appendChild(div);
+    div.style.color = 'var(--t-red,#f85149)';
+    $('console').appendChild(div);
   }
 });
 
 $('btn-init').addEventListener('click', async () => {
   const r = await api('/api/init', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ goal: $('f-goal').value, project: $('f-project').value.trim() || undefined }) });
-  const box = $('console');
   const div = document.createElement('div');
   div.textContent = '[web] init: ' + JSON.stringify(r);
-  div.style.color = 'var(--green)';
-  box.appendChild(div);
+  div.style.color = 'var(--t-green,#3fb950)';
+  $('console').appendChild(div);
   refreshStatus();
 });
 
@@ -485,17 +571,17 @@ $('btn-ask').addEventListener('click', async () => {
   const box = $('console');
   const div = document.createElement('div');
   div.textContent = '[web] 发送给 Cursor: ' + prompt.slice(0, 120);
-  div.style.color = 'var(--cyan)';
+  div.style.color = 'var(--t-cyan,#39c5cf)';
   box.appendChild(div);
   const r = await api('/api/ask', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt, project: $('f-project').value.trim() || undefined }) });
   const d2 = document.createElement('div');
   d2.textContent = '[web] ask 结果: ' + (r.ok ? '已发送（去 Cursor 查看回复）' : (r.error || JSON.stringify(r.detail || '')));
-  d2.style.color = r.ok ? 'var(--green)' : 'var(--red)';
+  d2.style.color = r.ok ? 'var(--t-green,#3fb950)' : 'var(--t-red,#f85149)';
   box.appendChild(d2);
   $('f-ask').value = '';
 });
 
-$('btn-refresh').addEventListener('click', () => { refreshStatus(); refreshEvents(); refreshTimeline(); loadReport(); });
+$('btn-refresh').addEventListener('click', () => { refreshStatus(); refreshEvents(); refreshCharts(); loadReport(); });
 $('btn-report').addEventListener('click', loadReport);
 
 // ------------------------------------------------------------ loop ----
@@ -505,8 +591,9 @@ async function tick(){
   await refreshConsole();
 }
 setInterval(() => { tick().catch(() => {}); }, 2000);
-setInterval(() => { refreshTimeline().catch(() => {}); }, 5000);
+setInterval(() => { refreshCharts().catch(() => {}); }, 5000);
 loadReport();
+window.addEventListener('resize', () => { if(timelineChart) timelineChart.resize(); if(activityChart) activityChart.resize(); });
 </script>
 </body>
 </html>

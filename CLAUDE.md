@@ -78,11 +78,13 @@ python verify_conversation_verdict.py                             # re-classify 
   `src/web.ts` + `src/web/index.html`（Web 界面，仿 dsh web）。
 - **Web 界面（`curloop web`）**：纯 Node 内置模块 HTTP 服务器，只绑定 127.0.0.1；默认端口 3080，
   **被占自动顺延（EADDRINUSE → +1，最多 10 次）**——本机 dsh web 就占着 3080。静态页在 `src/web/index.html`
-  （构建时 `cpSync` 到 `dist/web/`，build 脚本里与 win32.ps1 一起复制）。运行/规划通过**子进程**
-  `node bin/curloop.js run|plan --project …` 执行，stdout 进内存环形缓冲（`/api/console?since=N` 轮询回传），
-  STOP 文件优雅停止。API：`/api/status` `/api/events` `/api/snapshot` `/api/report` `/api/console`
-  `/api/run` `/api/plan` `/api/stop` `/api/init`。live/limit-sim 需服务本身是管理员（`isAdmin()` 门禁）。
-  新端点/新面板改动注意：页面 JS 在 HTML 内联（`new Function` 可做语法检查），时间线在客户端由 events.jsonl 渲染。
+  （构建时 `cpSync` 到 `dist/web/`，build 脚本里与 win32.ps1 一起复制）。**UI 用 Tabler 1.0（Bootstrap 5 暗色）
+  + ECharts 5，库文件本地打包在 `src/web/vendor/`（离线可用，勿删）**；页面 JS 内联在 HTML（`new Function` 可做
+  语法检查），图表在客户端由 events.jsonl 渲染。**静态路由在 `web.ts` 的 `serveStatic`（解码 + 去斜杠 + 越界 403）**，
+  新增资源（vendor/xxx）无需改路由。运行/规划通过**子进程** `node bin/curloop.js run|plan --project …` 执行，
+  stdout 进内存环形缓冲（`/api/console?since=N` 轮询回传），STOP 文件优雅停止。API：`/api/status` `/api/events`
+  `/api/snapshot` `/api/report` `/api/console` `/api/run` `/api/plan` `/api/stop` `/api/init` `/api/ask`。
+  live/limit-sim 需服务本身是管理员（`isAdmin()` 门禁）。
 - **中断与停止（可控性）**：`loop.ts` 用模块级 `interruptRequested` + `sleepInterruptible`（已导出，供测试）
   实现 Ctrl-C 秒级响应——所有轮询循环（waitReply / ensureIdleBeforeSend / sendAndWait）**必须**用
   `sleepInterruptible` + `checkInterrupt()`，不要在热循环里直接用 `sleep`，否则 Ctrl-C 要等一个轮询周期。
