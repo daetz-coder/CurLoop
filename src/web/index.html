@@ -354,29 +354,14 @@ details.panel .panel-b{padding-top:0}
                 <button type="button" class="btn btn-danger" id="btn-stop" disabled>
                   <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
                   停止</button>
-                <button type="button" class="btn btn-outline" id="btn-plan">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
-                  只生成 TODO</button>
               </div>
             </form>
             <div class="row g-2 mt-1">
               <div class="col-md-6">
-                <details class="panel" id="init-box">
-                  <summary>初始化项目（FinalGoal / TODO 模板）<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
-                  <div class="panel-b">
-                    <label class="form-label">最终目标（可多行；留空生成模板）</label>
-                    <textarea class="form-control mb-2" id="f-goal" rows="3" placeholder="例如：用 TypeScript 完成一个 CLI 工具并发布到 npm…"></textarea>
-                    <button type="button" class="btn btn-outline btn-sm" id="btn-init">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                      生成</button>
-                  </div>
-                </details>
-              </div>
-              <div class="col-md-6">
                 <details class="panel" id="ask-box">
                   <summary>手动向 Cursor 发送消息（人在回路 / 调试）<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
                   <div class="panel-b">
-                    <label class="form-label">消息内容（发送到 Cursor 当前会话；需 Cursor 带 CDP 运行）</label>
+                    <label class="form-label">消息内容（发送到 Cursor 当前会话；未运行会自动唤醒）</label>
                     <textarea class="form-control mb-2" id="f-ask" rows="2" placeholder="例如：现在项目进度如何？先别改代码，只回答。（Cursor 未运行会自动唤醒并等待回复）"></textarea>
                     <button type="button" class="btn btn-outline btn-sm" id="btn-ask">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
@@ -784,7 +769,6 @@ async function refreshStatus(){
   $('dot-run').style.background = runColor;
   $('btn-run').disabled = d.running;
   $('btn-stop').disabled = !d.running;
-  $('btn-plan').disabled = d.running;
 
   const s = d.status.stats;
   const cards = [
@@ -1264,16 +1248,6 @@ $('btn-stop').addEventListener('click', async () => {
   div.textContent = '[web] ' + (r.ok ? '已请求停止（STOP 文件: ' + r.stopFile + '）' : '停止失败: ' + (r.error || ''));
   div.style.color = L.yellow;
   $('console').appendChild(div);
-});
-
-$('btn-plan').addEventListener('click', async () => {
-  const r = await api('/api/plan', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ project: $('f-project').value.trim() || undefined }) });
-  if(!r.ok){
-    const div = document.createElement('div');
-    div.textContent = '[web] plan 启动失败: ' + (r.error || '');
-    div.style.color = L.red;
-    $('console').appendChild(div);
-  }
 });
 
 $('btn-init').addEventListener('click', async () => {
