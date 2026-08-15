@@ -240,6 +240,37 @@ export function uiFromDict(d: Record<string, unknown>): UiConfig {
   };
 }
 
+export interface PromptConfig {
+  /** 任务提示词附带仓库上下文（git 状态/最近提交/HARNESS_STATE.md 摘要） */
+  taskContext: boolean;
+  /** 长对话检查点：每完成 N 个任务让 Agent 把进度写入 HARNESS_STATE.md（0 = 关闭） */
+  checkpointEveryTasks: number;
+  /** 队列空且两层扩展都无新任务时，再让 Agent 对照 FinalGoal 做一次最终验收 */
+  finalVerify: boolean;
+}
+
+export function promptFromDict(d: Record<string, unknown>): PromptConfig {
+  return {
+    taskContext: Boolean(d['task_context'] ?? true),
+    checkpointEveryTasks: Math.trunc(num(d, 'checkpoint_every_tasks', 0)),
+    finalVerify: Boolean(d['final_verify'] ?? false),
+  };
+}
+
+export interface ControlConfig {
+  /** 单次 run 最多完成任务数（0 = 不限） */
+  maxTasks: number;
+  /** 停止文件：存在即优雅中止（空 = <projectDir>/STOP）。退出码 2（watchdog 不重启） */
+  stopFile: string;
+}
+
+export function controlFromDict(d: Record<string, unknown>): ControlConfig {
+  return {
+    maxTasks: Math.trunc(num(d, 'max_tasks', 0)),
+    stopFile: strPath(d, 'stop_file') || '',
+  };
+}
+
 // 运行时属性（Object.defineProperties 注入的 getter；构造时不可直接赋值）
 export interface Config {
   projectDir: string;
@@ -253,6 +284,8 @@ export interface Config {
   timeouts: Timeouts;
   retry: RetryConfig;
   ui: UiConfig;
+  prompt: PromptConfig;
+  control: ControlConfig;
   stateDir: string;
   eventLog: string;
   mode: string;
@@ -286,6 +319,8 @@ export function fromDict(d: Record<string, unknown>): Config {
     timeouts: timeoutsFromDict((d['timeouts'] as Record<string, unknown>) || {}),
     retry: retryFromDict((d['retry'] as Record<string, unknown>) || {}),
     ui: uiFromDict((d['ui'] as Record<string, unknown>) || {}),
+    prompt: promptFromDict((d['prompt'] as Record<string, unknown>) || {}),
+    control: controlFromDict((d['control'] as Record<string, unknown>) || {}),
     stateDir,
     eventLog: String(d['event_log'] ?? 'events.jsonl'),
     mode: String(d['mode'] ?? 'dry-run'),

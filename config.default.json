@@ -70,6 +70,15 @@
     "auto_extend": true,
     "auto_extend_max_iterations": 20
   },
+  "prompt": {
+    "task_context": true,
+    "checkpoint_every_tasks": 0,
+    "final_verify": false
+  },
+  "control": {
+    "max_tasks": 0,
+    "stop_file": ""
+  },
   "ui": {
     "periodic_status_s": 180
   },

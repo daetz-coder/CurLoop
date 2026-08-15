@@ -15,9 +15,10 @@
   - `detection.ts` — 用量限制 / 登出 / 回复完成检测（DOM 中英文关键词，注入 JS）
   - `loginAssistant.ts` + `win32.ts` + `win32.ps1` — 换号助手 GUI 自动化：PowerShell 桥（Add-Type C#）窗口/截图/点击
   - `template.ts` — 纯 TS 模板匹配（pngjs 灰度 + 降采样 NCC，语义对齐 pyautogui CCOEFF_NORMED）
+  - `prompts.ts` — 提示词 v2：任务执行纪律 + 仓库上下文（git/HARNESS_STATE.md）、长对话检查点、FinalGoal 最终验收
   - `todoQueue.ts` / `runState.ts` / `observer.ts` / `ui.ts` / `fileLock.ts` — TODO 队列、断点续跑（snapshot + events.jsonl）、状态统计、ANSI 渲染、跨进程同步锁
   - `loop.ts` — 无人值守状态机（`--check-config` / `--dry-run` / `--detect-only` / `--mode live|limit-sim`）
-  - `cli.ts` — 交互 CLI + REPL（`run` / `plan` / `status` / `stats` / `watch` / `init`）
+  - `cli.ts` — 交互 CLI + REPL（`run` / `plan` / `status` / `stats` / `watch` / `init` / `tasks` / `log` / `stop` / `report`）
 - `bin/curloop.js` — Node 入口（flag 参数 → loop 直通；子命令/空 → 交互 CLI）
 
 仓库内 `unattended/*.py` 为旧 Python 实现，仅作参考/回归对比，不再维护；入口一律走 `dist/`。
@@ -37,12 +38,33 @@ curloop --check-config            # 配置自检（只读）
 curloop status                    # 查看目标项目状态（当前目录 = 目标项目）
 curloop run --mode live           # 无人值守运行（需管理员）
 curloop run --mode live --project D:\path\to\project
+curloop run --mode live --max-tasks 10 --max-switches 3   # 运行预算：最多 10 个任务 / 3 次换号
 ```
 
 用法分两种，自动识别：
 
-- **无人值守直通**：第一个参数以 `-` 开头（`--check-config` / `--dry-run` / `--detect-only` / `--mode ...`）
-- **交互 CLI**：无参数进入 REPL，或子命令 `run` / `plan` / `status` / `stats` / `watch` / `init`
+- **无人值守直通**：第一个参数以 `-` 开头（`--check-config` / `--dry-run` / `--detect-only` / `--mode ...` / `--max-tasks N` / `--max-switches N`）
+- **交互 CLI**：无参数进入 REPL，或子命令 `run` / `plan` / `status` / `stats` / `watch` / `init` / `tasks` / `log` / `stop` / `report`
+
+REPL 斜杠命令：`/status` `/stats` `/tasks` `/log [N]` `/run` `/plan` `/watch` `/init` `/stop` `/report` `/project <路径>` `/exit`。
+
+## 长对话 / 可控 / 最终（Harness 设计）
+
+- **长对话续接**：任务提示词自带仓库上下文（git 最近提交、未提交改动、`HARNESS_STATE.md` 进度小结），
+  换号/重启/线程变长后 Agent 仍能对齐进度。可选 `prompt.checkpoint_every_tasks: 5`：每完成 5 个任务，
+  让 Agent 把进度固化写入 `HARNESS_STATE.md`。
+- **自动换号**：撞 limit/登出自动换号（`login_assistant`），预算 `retry.max_total_account_switches_per_run`（0=不限）；
+  CLI `--max-switches N` 可临时覆盖。
+- **可控**：
+  - `--max-tasks N` / `control.max_tasks`：单次 run 完成任务上限（到点收尾退出 0）
+  - **STOP 文件**（`<projectDir>/STOP`，或 `control.stop_file` 自定义）：运行中检测到即优雅中止，
+    退出码 2（watchdog 不重启）；REPL 里 `/stop` 一键创建，删除文件可取消
+  - Ctrl-C 秒级响应：所有轮询 sleep 可中断，先保存状态再退出（130）
+- **最终（收尾）**：
+  - 队列空 + 轻量扩展 + FinalGoal 重规划都无新任务 → 判定目标完成退出
+  - 可选 `prompt.final_verify: true`：三层收尾——让 Agent 对照 FinalGoal 做最后一次验收
+  - 每次正常结束（run_done / max_tasks / stop / abort）写入 `runstate/<key>/report.json` 结束报告；
+    REPL `/report` 查看，控制台也会打印一行摘要
 
 ## 配置
 

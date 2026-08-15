@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as readline from 'readline';
 import { Config, load as loadConfig } from './config';
 import * as loop from './loop';
-import { buildStatus } from './observer';
+import { buildStatus, fmtTs, loadEvents, shortDetail } from './observer';
 import * as ui from './ui';
 import { RunState } from './runState';
 import { parseAll } from './todoQueue';
@@ -17,6 +17,7 @@ import { parseAll } from './todoQueue';
  *   curloop stats          # 统计摘要
  *   curloop watch          # 实时监控（每 3 秒刷新）
  *   curloop init           # 生成 FinalGoal.md / TODO.md 模板
+ *   curloop tasks|log|stop|report   # REPL 内也可用 /tasks /log /stop /report
  */
 
 export interface CliArgs {
@@ -27,6 +28,8 @@ export interface CliArgs {
   noExpand?: boolean;
   yes?: boolean;
   finalGoal?: boolean;
+  maxTasks?: number;
+  count?: number;
   _: string[];
   [key: string]: unknown;
 }
@@ -153,6 +156,7 @@ export async function cmdRun(args: CliArgs): Promise<number> {
   ui.init();
   const project = path.resolve(args.project || process.cwd());
   const cfg = cfgFor(project, args.mode || 'live');
+  if (args.maxTasks && args.maxTasks > 0) cfg.control.maxTasks = Math.trunc(args.maxTasks);
   if (args.noPlan && !fs.existsSync(cfg.todoFile)) {
     console.log(ui.err('[fail] --no-plan 但 TODO.md 不存在，无法运行'));
     return 2;
@@ -319,8 +323,72 @@ export function cmdInit(args: CliArgs): number {
   return 0;
 }
 
+export async function cmdTasks(args: CliArgs): Promise<number> {
+  ui.init();
+  const project = path.resolve(args.project || process.cwd());
+  const cfg = cfgFor(project, args.mode || 'live');
+  const rep = buildStatus(cfg.projectDir, cfg.stateDir);
+  console.log(ui.head('TODO 队列') + `  ${ui.dim('(' + rep.queue.length + ' 项)')}`);
+  if (!rep.queue.length) {
+    console.log(`  ${ui.dim('（空）')}`);
+    return 0;
+  }
+  const markMap: Record<string, string> = {
+    done: ui.ok('✓ done'),
+    running: ui.warn('▶ running'),
+    pending: ui.dim('○ pending'),
+    skipped: ui.err('✗ skipped'),
+  };
+  for (const q of rep.queue) {
+    const st = q.status ?? '';
+    console.log(`  ${markMap[st] ?? ui.dim(st)} ${q.text}`);
+  }
+  return 0;
+}
+
+export async function cmdLog(args: CliArgs): Promise<number> {
+  ui.init();
+  const project = path.resolve(args.project || process.cwd());
+  const cfg = cfgFor(project, args.mode || 'live');
+  const n = Math.max(1, Math.min(200, Number(args.count ?? 20)));
+  const evs = loadEvents(cfg.projectDir, cfg.stateDir).slice(-n).reverse();
+  if (!evs.length) {
+    console.log(ui.dim('[log] runstate 暂无事件'));
+    return 0;
+  }
+  for (const e of evs) {
+    const detail = shortDetail(e);
+    console.log(`  ${ui.dim(fmtTs(e['ts']))}  ${String(e['event'] ?? '')}${detail ? '  ' + ui.dim(detail) : ''}`);
+  }
+  return 0;
+}
+
+export function cmdStop(args: CliArgs): number {
+  ui.init();
+  const project = path.resolve(args.project || process.cwd());
+  const cfg = cfgFor(project, args.mode || 'live');
+  const sp = loop.stopFilePath(cfg);
+  fs.writeFileSync(sp, `stop requested at ${new Date().toISOString()}\n`, 'utf-8');
+  console.log(ui.ok('[stop] 已创建停止文件') + `  ${ui.dim(sp)}`);
+  console.log(ui.dim('  运行中的 curloop 会在下一个轮询周期检测到并优雅中止（退出码 2，watchdog 不重启）。删除该文件可取消。'));
+  return 0;
+}
+
+export function cmdReport(args: CliArgs): number {
+  ui.init();
+  const project = path.resolve(args.project || process.cwd());
+  const cfg = cfgFor(project, args.mode || 'live');
+  const rp = path.join(cfg.projectStateDir, 'report.json');
+  if (!fs.existsSync(rp)) {
+    console.log(ui.warn('[report] 暂无结束报告（run 尚未正常结束，或该目录无 runstate）'));
+    return 1;
+  }
+  console.log(fs.readFileSync(rp, 'utf-8'));
+  return 0;
+}
+
 // ---------------------------------------------------------------------- REPL ----
-const ALL_SLASH = ['/help', '/status', '/stats', '/run', '/plan', '/watch', '/init', '/project', '/exit', '/quit'];
+const ALL_SLASH = ['/help', '/status', '/stats', '/run', '/plan', '/watch', '/init', '/tasks', '/log', '/stop', '/report', '/project', '/exit', '/quit'];
 
 function slashHelp(): string {
   const c = ui.C;
@@ -329,10 +397,14 @@ function slashHelp(): string {
     `  ${ui.paint('❯', c.CYAN)} /help        显示本帮助\n` +
     `  ${ui.paint('❯', c.CYAN)} /status      查看状态与统计（换号 / 对话 / 队列 / 事件）\n` +
     `  ${ui.paint('❯', c.CYAN)} /stats       统计摘要\n` +
-    `  ${ui.paint('❯', c.CYAN)} /run         无人值守运行（--yes / --no-plan）\n` +
+    `  ${ui.paint('❯', c.CYAN)} /tasks       查看当前 TODO 队列\n` +
+    `  ${ui.paint('❯', c.CYAN)} /log [N]     最近 N 条事件（默认 20）\n` +
+    `  ${ui.paint('❯', c.CYAN)} /run         无人值守运行（--yes / --no-plan / --max-tasks N）\n` +
     `  ${ui.paint('❯', c.CYAN)} /plan        只生成 TODO.md（读 FinalGoal）\n` +
     `  ${ui.paint('❯', c.CYAN)} /watch       实时监控（Ctrl-C 返回）\n` +
     `  ${ui.paint('❯', c.CYAN)} /init        生成 FinalGoal.md / TODO.md 模板（--final-goal）\n` +
+    `  ${ui.paint('❯', c.CYAN)} /stop        创建 STOP 文件，优雅中止正在运行的 loop（退出码 2）\n` +
+    `  ${ui.paint('❯', c.CYAN)} /report      查看上次运行的结束报告（report.json）\n` +
     `  ${ui.paint('❯', c.CYAN)} /project <路径>  切换目标项目\n` +
     `  ${ui.paint('❯', c.CYAN)} /exit        退出（或 Ctrl-C / Ctrl-D）\n`
   );
@@ -402,6 +474,10 @@ function slashArgs(cmd: string, rest: string, project: string): CliArgs {
   a.yes = rest.includes('--yes');
   const m = /--mode\s+(\S+)/.exec(rest);
   if (m) a.mode = m[1];
+  const mt = /--max-tasks\s+(\d+)/.exec(rest);
+  if (mt) a.maxTasks = Number(mt[1]);
+  const trimmed = rest.trim();
+  if (/^\d+$/.test(trimmed)) a.count = Number(trimmed);
   return a;
 }
 
@@ -428,6 +504,10 @@ export async function repl(project?: string): Promise<number> {
     '/plan': cmdPlan,
     '/watch': cmdWatch,
     '/init': cmdInit,
+    '/tasks': cmdTasks,
+    '/log': cmdLog,
+    '/stop': cmdStop,
+    '/report': cmdReport,
   };
 
   let done = false;
@@ -554,6 +634,7 @@ export async function main(argv: string[]): Promise<number> {
     noExpand: Boolean(args['no-expand']),
     yes: Boolean(args.yes),
     finalGoal: Boolean(args['final-goal']),
+    maxTasks: args['max-tasks'] !== undefined ? Math.max(0, Math.trunc(Number(args['max-tasks']))) : undefined,
   };
   switch (cmd) {
     case 'run':

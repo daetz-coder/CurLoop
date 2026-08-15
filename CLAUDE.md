@@ -73,7 +73,19 @@ python verify_conversation_verdict.py                             # re-classify 
 - 关键映射（Python → TS）：`loop.py`→`src/loop.ts`、`cli.py`→`src/cli.ts`、`todo_queue.py`→`src/todoQueue.ts`、
   `run_state.py`→`src/runState.ts`、`observer.py`→`src/observer.ts`、`ui.py`→`src/ui.ts`、
   `verify_cdp.py`→`src/cdp.ts`、`resume_after_auth.py`→`src/auth.ts`、`cursor_ctl.py`→`src/cursor.ts`、
-  `detection.py`→`src/detection.ts`、`login_assistant.py`→`src/loginAssistant.ts`、`assistant_probe.py`→`src/assistantProbe.ts`。
+  `detection.py`→`src/detection.ts`、`login_assistant.py`→`src/loginAssistant.ts`、`assistant_probe.py`→`src/assistantProbe.ts`；
+  新增 `src/prompts.ts`（提示词 v2：任务纪律+仓库上下文、长对话检查点、最终验收）。
+- **中断与停止（可控性）**：`loop.ts` 用模块级 `interruptRequested` + `sleepInterruptible`（已导出，供测试）
+  实现 Ctrl-C 秒级响应——所有轮询循环（waitReply / ensureIdleBeforeSend / sendAndWait）**必须**用
+  `sleepInterruptible` + `checkInterrupt()`，不要在热循环里直接用 `sleep`，否则 Ctrl-C 要等一个轮询周期。
+  STOP 文件（`<projectDir>/STOP`，`control.stop_file` 可覆盖）存在即抛 `StopRequested` → run() 记
+  run_abort、写 report、退出码 2（watchdog 不重启）。任务级 catch 必须 rethrow
+  `HarnessInterrupt`/`StopRequested`，绝不能当 task_error 吞掉。
+- **运行预算与收尾**：`--max-tasks N` / `--max-switches N`（CLI 覆盖 `control.max_tasks` /
+  `retry.max_total_account_switches_per_run`）；任务提示词用 `buildTaskPrompt`（git 上下文 + 工作纪律），
+  不要再调 `TodoTask.prompt`。run_done / max_tasks / stop / abort 都写 `runstate/<key>/report.json`
+  （`writeFinalReport`）；可选三层收尾 `prompt.final_verify`（tryFinalVerify，在 level-1 extend 与
+  level-2 goal_extend 之后），长对话检查点 `prompt.checkpoint_every_tasks`（每 N 任务让 Agent 写 HARNESS_STATE.md）。
 - 配置外置不变：`config.default.json`（干净默认）+ `%APPDATA%\curloop\config.json`（用户覆盖）+ `--config FILE`；
   runstate 默认 `%APPDATA%\curloop\runstate`，按 (项目绝对路径, git 分支) 隔离（`projectStateKey`）。
   **`cfg.projectDir` 可在 load 后被 CLI 覆盖，`todoFile`/`projectStateDir` 等必须是动态 getter**（见 config.ts fromDict），

@@ -10,6 +10,11 @@ import { RefreshReport, refreshAccount } from './loginAssistant';
 import { RunState } from './runState';
 import { TodoTask, ensureDone, parseAll } from './todoQueue';
 import { sleep } from './cdp';
+import {
+  buildTaskPrompt,
+  CHECKPOINT_PROMPT,
+  FINAL_VERIFY_PROMPT,
+} from './prompts';
 
 /** 无人值守 Cursor 编码循环 — state machine + CLI。
  *
@@ -18,7 +23,71 @@ import { sleep } from './cdp';
  *   curloop --dry-run
  *   curloop --mode live --project D:\\2026AppDev\\RAGLab
  *   curloop --mode limit-sim
+ *   curloop --max-tasks 10 --max-switches 3 --mode live --project <dir>
  */
+
+// ------------------------------------------------------------- interrupt ----
+/** Ctrl-C 请求中断：让所有轮询 sleep 立即返回，而不是等下一个轮询周期。
+ *  Python 版在 time.sleep 里直接抛 KeyboardInterrupt；Node 必须自己实现。 */
+class HarnessInterrupt extends Error {
+  constructor() {
+    super('interrupt requested');
+    this.name = 'HarnessInterrupt';
+  }
+}
+
+let interruptRequested = false;
+const interruptWaiters: Array<() => void> = [];
+
+export function requestInterrupt(): void {
+  interruptRequested = true;
+  const ws = interruptWaiters.splice(0);
+  for (const w of ws) w();
+}
+
+/** 可中断 sleep：Ctrl-C 时提前返回（调用方随后检查 interruptRequested 抛 HarnessInterrupt）。 */
+export async function sleepInterruptible(seconds: number): Promise<void> {
+  if (interruptRequested) return;
+  await new Promise<void>((resolve) => {
+    const timer = setTimeout(() => {
+      const i = interruptWaiters.indexOf(w);
+      if (i >= 0) interruptWaiters.splice(i, 1);
+      resolve();
+    }, seconds * 1000);
+    const w = (): void => {
+      clearTimeout(timer);
+      resolve();
+    };
+    interruptWaiters.push(w);
+  });
+}
+
+function checkInterrupt(): void {
+  if (interruptRequested) throw new HarnessInterrupt();
+}
+
+// ------------------------------------------------------------- stop file ----
+/** STOP 文件路径：config.control.stop_file 或 <projectDir>/STOP。存在即优雅中止。 */
+export function stopFilePath(cfg: Config): string {
+  return cfg.control.stopFile
+    ? (path.isAbsolute(cfg.control.stopFile)
+        ? cfg.control.stopFile
+        : path.join(cfg.projectDir, cfg.control.stopFile))
+    : path.join(cfg.projectDir, 'STOP');
+}
+
+function checkStopFile(cfg: Config): void {
+  if (fs.existsSync(stopFilePath(cfg))) {
+    throw new StopRequested();
+  }
+}
+
+class StopRequested extends Error {
+  constructor() {
+    super('stop file present');
+    this.name = 'StopRequested';
+  }
+}
 
 // ------------------------------------------------------------------- CLIs ----
 export function cmdCheckConfig(cfg: Config): number {
@@ -171,7 +240,8 @@ async function doSwitch(cfg: Config, state: RunState, task: TodoTask): Promise<b
   const cd = cfg.retry.cooldownBetweenSwitchesS;
   if (cd) {
     state.log('cooldown', { seconds: cd });
-    await sleep(cd);
+    await sleepInterruptible(cd);
+    checkInterrupt();
   }
   return true;
 }
@@ -253,7 +323,9 @@ async function ensureIdleBeforeSend(
         /* ignore */
       }
     }
-    await sleep(5);
+    await sleepInterruptible(5);
+    checkInterrupt();
+    checkStopFile(cfg);
     waited += 5.0;
   }
   return 'ok'; // 超时：按原语义放行，避免死锁
@@ -347,7 +419,9 @@ export async function sendAndWait(
   let prev = new Set<string>();
   const interval = cfg.timeouts.completionPollIntervalS;
   while (true) {
-    await sleep(interval);
+    await sleepInterruptible(interval);
+    checkInterrupt();
+    checkStopFile(cfg);
     maybePrintStatus(cfg); // 扩展/规划等待期间也刷新周期状态块
     const r = await cursor.pollReply(cfg, tracker, prev);
     const st = r['state'];
@@ -501,7 +575,9 @@ async function waitReply(
   };
 
   while (true) {
-    await sleep(interval);
+    await sleepInterruptible(interval);
+    checkInterrupt();
+    checkStopFile(cfg);
     pollCount += 1;
     maybePrintStatus(cfg); // 长等待（等回复）期间也刷新周期状态块
     // Promo/update modals can pop up mid-conversation; dismiss periodically
@@ -531,7 +607,9 @@ async function waitReply(
         continue;
       }
       // Confirm silence: one more poll to make sure the agent is really idle
-      await sleep(interval);
+      await sleepInterruptible(interval);
+      checkInterrupt();
+      checkStopFile(cfg);
       const r2 = await cursor.pollReply(cfg, tracker, prev);
       if (r2['state'] === 'done') return ['done', detail];
       logPollIfChanged(String(r2['state']), (r2['detail'] as string) || '', r2);
@@ -551,7 +629,7 @@ async function waitReply(
 
 // -------------------------------------------------------------------- task ----
 export async function runTask(cfg: Config, state: RunState, task: TodoTask, sim: { forced: boolean }): Promise<string> {
-  const prompt = task.prompt(cfg.projectDir);
+  const prompt = buildTaskPrompt(cfg, task);
   state.log('task_start', { task: task.text.slice(0, 60), line: task.line, retries: task.retries });
   while (true) {
     const ready = await ensureReady(cfg, state, task);
@@ -597,6 +675,56 @@ export async function runTask(cfg: Config, state: RunState, task: TodoTask, sim:
 }
 
 // -------------------------------------------------------------------- main ----
+/** Level-3 最终验收：两层扩展都无新任务时，让 Agent 对照 FinalGoal 确认目标是否真完成。 */
+async function tryFinalVerify(cfg: Config, state: RunState): Promise<RunState | null> {
+  const goal = readFinalGoal(cfg);
+  if (!goal) {
+    state.log('final_verify_failed', { reason: 'FinalGoal not found' });
+    return null;
+  }
+  if (
+    !(await extendOrSwitch(
+      cfg,
+      state,
+      FINAL_VERIFY_PROMPT(cfg.projectDir, goal.slice(0, GOAL_CHUNK)),
+      'final_verify',
+    ))
+  ) {
+    return null;
+  }
+  return reloadQueue(cfg, state, 'final_verify');
+}
+
+/** 运行结束报告：runstate/<key>/report.json + 控制台摘要。 */
+function writeFinalReport(cfg: Config, state: RunState, kind: string): void {
+  try {
+    const rep = buildStatus(cfg.projectDir, cfg.stateDir);
+    const report = {
+      project: cfg.projectDir,
+      mode: cfg.mode,
+      end_kind: kind,
+      ended_at: new Date().toISOString(),
+      stats: rep.stats,
+      queue: state.queue.map((t) => ({
+        text: t.text,
+        status: t.status,
+        retries: t.retries,
+        switch_reason: t.switchReason,
+      })),
+      switches_used: state.switchesUsed,
+    };
+    fs.mkdirSync(cfg.projectStateDir, { recursive: true });
+    fs.writeFileSync(path.join(cfg.projectStateDir, 'report.json'), JSON.stringify(report, null, 2), 'utf-8');
+    console.log(
+      `[report] ${kind}: 完成=${rep.stats.tasks_done} 发送=${rep.stats.sends} ` +
+        `换号=${rep.stats.switches}(成功${rep.stats.switch_ok}/失败${rep.stats.switch_failed}) ` +
+        `剩余队列=${state.queue.length}`,
+    );
+  } catch (e) {
+    console.log(`[warn] 结束报告写入失败: ${String(e)}`);
+  }
+}
+
 export async function run(cfg: Config): Promise<number> {
   cursor.init(cfg);
   let state = RunState.load(cfg.snapshotFile, cfg.eventLogFile, cfg.todoFile);
@@ -609,22 +737,21 @@ export async function run(cfg: Config): Promise<number> {
   const sim: { forced: boolean } = { forced: false }; // limit-sim: force the switch once
   let extendUsed = 0; // level-1 light auto-extend refills
   let goalExtendUsed = 0; // level-2 FinalGoal re-plans
+  let tasksDoneInRun = 0; // 单次 run 完成任务计数（max_tasks 预算）
   state.switchesUsed = 0; // 每次 run 独立换号预算（不跨 run 累计）
   ui.init();
 
-  let interrupted = false;
-  const onSigint = () => {
-    interrupted = true;
-  };
+  const onSigint = () => requestInterrupt();
   process.once('SIGINT', onSigint);
   try {
     while (true) {
-      if (interrupted) {
+      if (interruptRequested) {
         state.log('interrupt');
         state.save();
         console.log('\n[interrupt] 状态已保存，可再次运行续跑');
         return 130;
       }
+      checkStopFile(cfg);
       maybePrintStatus(cfg); // 周期状态块（waitReply/ensureIdle 内也会调用）
       const task = state.nextTask();
       if (task === null) {
@@ -644,6 +771,10 @@ export async function run(cfg: Config): Promise<number> {
           fresh = await tryGoalExtend(cfg, state);
           if (fresh !== null) goalExtendUsed += 1;
         }
+        // Level 3: final verification against FinalGoal (opt-in, prompt.final_verify)
+        if (fresh === null && cfg.prompt.finalVerify) {
+          fresh = await tryFinalVerify(cfg, state);
+        }
         if (fresh !== null) {
           // Adopt the freshly planned queue — our own state is still empty.
           state = fresh;
@@ -658,8 +789,30 @@ export async function run(cfg: Config): Promise<number> {
         } catch {
           /* ignore */
         }
-        state.log('run_done', { pending: 0 });
-        console.log(JSON.stringify({ run_done: true, queue: state.queue.length, switches: state.switchesUsed }));
+        state.log('run_done', { pending: 0, tasks_done: tasksDoneInRun });
+        writeFinalReport(cfg, state, 'run_done');
+        console.log(
+          JSON.stringify({
+            run_done: true,
+            queue: state.queue.length,
+            switches: state.switchesUsed,
+            tasks_done: tasksDoneInRun,
+          }),
+        );
+        return 0;
+      }
+      // max-tasks budget：达到上限即收尾（队列留待下次 run）
+      if (cfg.control.maxTasks > 0 && tasksDoneInRun >= cfg.control.maxTasks) {
+        state.log('run_done', { pending: state.queue.length, reason: 'max_tasks', max_tasks: cfg.control.maxTasks });
+        writeFinalReport(cfg, state, 'max_tasks');
+        console.log(
+          JSON.stringify({
+            run_done: true,
+            reason: 'max_tasks',
+            tasks_done: tasksDoneInRun,
+            queue: state.queue.length,
+          }),
+        );
         return 0;
       }
       task.status = 'running';
@@ -668,13 +821,25 @@ export async function run(cfg: Config): Promise<number> {
       try {
         outcome = await runTask(cfg, state, task, sim);
       } catch (e) {
+        if (e instanceof HarnessInterrupt || e instanceof StopRequested) throw e;
         // never let one flaky task kill the run
         state.log('task_error', { task: task.text.slice(0, 60), error: String(e) });
         skip(state, task, `exception: ${e}`);
         outcome = 'skipped';
       }
       if (outcome === 'done') {
+        tasksDoneInRun += 1;
         gitCommit(cfg, task);
+        // 长对话检查点（可选）：每 N 个任务让 Agent 把进度固化到 HARNESS_STATE.md
+        if (cfg.prompt.checkpointEveryTasks > 0 && tasksDoneInRun % cfg.prompt.checkpointEveryTasks === 0) {
+          try {
+            state.log('checkpoint', { task: task.text.slice(0, 60), n: tasksDoneInRun });
+            await sendAndWait(cfg, state, CHECKPOINT_PROMPT(cfg.projectDir), 'checkpoint');
+          } catch (e) {
+            if (e instanceof HarnessInterrupt || e instanceof StopRequested) throw e;
+            state.log('checkpoint_failed', { error: String(e) });
+          }
+        }
         // 任务完成后重新加载 TODO.md：吸收 Agent 追加的新任务
         const fresh = reloadQueue(cfg, state, 'task_done');
         if (fresh !== null) {
@@ -688,11 +853,35 @@ export async function run(cfg: Config): Promise<number> {
       if (outcome === 'abort') {
         state.log('run_abort');
         state.save();
+        writeFinalReport(cfg, state, 'run_abort');
         return 2; // distinct from crash(1): watchdog must NOT restart on abort
       }
       state.save();
     }
+  } catch (e) {
+    if (e instanceof StopRequested) {
+      state.log('run_abort', { reason: 'stop_file' });
+      state.save();
+      console.log('[stop] 检测到 STOP 文件，已优雅中止（退出码 2，watchdog 不重启）。删除 STOP 后可继续。');
+      writeFinalReport(cfg, state, 'stop_file');
+      return 2;
+    }
+    if (e instanceof HarnessInterrupt) {
+      state.log('interrupt');
+      state.save();
+      console.log('\n[interrupt] 状态已保存，可再次运行续跑');
+      return 130;
+    }
+    // 运行级意外错误：尽力保存状态后抛出（退出码 1 = 崩溃，watchdog 会重启）
+    try {
+      state.log('run_error', { error: String(e) });
+      state.save();
+    } catch {
+      /* ignore */
+    }
+    throw e;
   } finally {
+    interruptRequested = false;
     process.removeListener('SIGINT', onSigint);
   }
 }
@@ -721,17 +910,30 @@ export interface LoopArgs {
   'detect-only'?: boolean;
   'detect-seconds'?: number;
   'inject-limit-node'?: boolean;
+  'max-tasks'?: number;
+  'max-switches'?: number;
   [key: string]: unknown;
 }
 
 export async function main(argv: string[]): Promise<number> {
   const minimist = require('minimist') as (args: string[], opts?: unknown) => LoopArgs;
-  const args = minimist(argv, { string: ['config', 'project', 'mode'], boolean: ['dry-run', 'check-config', 'assistant-dry-run', 'assistant-refresh-only', 'detect-only', 'inject-limit-node'], default: { 'detect-seconds': 20.0 } });
+  const args = minimist(argv, {
+    string: ['config', 'project', 'mode'],
+    boolean: ['dry-run', 'check-config', 'assistant-dry-run', 'assistant-refresh-only', 'detect-only', 'inject-limit-node'],
+    default: { 'detect-seconds': 20.0 },
+  });
 
   if (args.project) setProjectOverride(args.project);
   let cfg = loadConfig(args.config ? path.resolve(args.config) : null);
   if (args.mode) cfg.mode = args.mode;
   if (args['dry-run']) cfg.mode = 'dry-run';
+  // 运行预算覆盖（可控性）：--max-tasks N / --max-switches N
+  if (args['max-tasks'] !== undefined) {
+    cfg.control.maxTasks = Math.max(0, Math.trunc(Number(args['max-tasks'])));
+  }
+  if (args['max-switches'] !== undefined) {
+    cfg.retry.maxTotalAccountSwitchesPerRun = Math.max(0, Math.trunc(Number(args['max-switches'])));
+  }
 
   if (args['check-config']) return cmdCheckConfig(cfg);
   if (args['assistant-dry-run']) return cmdAssistantDryRun(cfg);
