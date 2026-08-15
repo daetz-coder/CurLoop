@@ -52,9 +52,12 @@ node bin\curloop.js init --final-goal           # 生成 FinalGoal.md + TODO.md 
   （`DISMISS_JS` 保守弹窗关闭）、`sendPrompt`/`clearComposer`、`pollReply`、`ensureReady`、`clickNewChat`（线程轮转用）。
 - `src/detection.ts` — 三段注入 JS + 分类器：`buildLimitJs`/`classifyLimit`、`REPLY_JS`/`CompletionTracker`、
   `buildLogoutJs`。全部为 DOM 文本关键词匹配（EN + CN）。
-- `src/prompts.ts` — 提示词 v2：`buildTaskPrompt`（任务纪律 + 仓库上下文 + 可选 FinalGoal 目标提示 + 文件覆盖）、
-  `CHECKPOINT_PROMPT`、`FINAL_VERIFY_PROMPT`、`buildRestorePrompt`（线程轮转/恢复续接）、`writeHarnessState`
-  （harness 自动生成的 `HARNESS_STATE.md` 记忆文件）。
+- `src/prompts.ts` — 提示词 v2（注册表 + 可覆盖）：`PROMPT_DEFS`（8 个提示词：task/extend/goal_extend/
+  plan_initial/checkpoint/final_verify/restore/expand_goal），每个都有内置模板 + 占位符（{project}/{task}/{goal}…）。
+  用户可在 `%APPDATA%\curloop\prompts\<key>.txt` 覆盖（Web「提示词」页编辑保存；清空 = 恢复内置），
+  发送时 `loadPrompt(key, builtin)` 优先读覆盖文件。构建器：`buildTaskPrompt`（任务纪律 + 仓库上下文 +
+  可选 FinalGoal 目标提示 + `prompt.task_prompt_file` 旧机制兼容）、`CHECKPOINT_PROMPT`、`FINAL_VERIFY_PROMPT`、
+  `buildRestorePrompt`（线程轮转/恢复续接）、`writeHarnessState`（harness 自动生成的 `HARNESS_STATE.md` 记忆文件）。
 - `src/loop.ts` — 无人值守状态机 + flag CLI。`RunState`/`CompletionTracker`/`ensureIdleBeforeSend`/`waitReply`/
   `runTask`/`run`（Ctrl-C 秒级响应 + STOP 文件 + max_tasks 预算 + 三层收尾 + report.json）。
 - `src/cli.ts` — 交互 CLI + REPL（run/plan/status/stats/watch/init/tasks/log/stop/report/web）。

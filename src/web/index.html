@@ -180,6 +180,19 @@ details.panel .panel-b{padding-top:0}
 .help{font-size:12.5px;color:var(--muted-fg);line-height:1.8}
 .help a{color:var(--blue);text-decoration:none}
 .help a:hover{text-decoration:underline}
+/* ============ 提示词管理 ============ */
+.prompt-card{border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;margin-bottom:14px;background:var(--card)}
+.prompt-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.prompt-title{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:650;color:var(--fg)}
+.prompt-title .badge{font-size:10.5px;font-weight:600;padding:3px 8px;border-radius:99px}
+.prompt-desc{color:var(--muted-fg);font-size:12px}
+.prompt-meta{display:flex;flex-wrap:wrap;gap:6px 18px;margin:8px 0 10px;font-size:11.5px}
+.prompt-loc{color:var(--muted-fg);display:inline-flex;align-items:center;gap:5px;min-width:0}
+.prompt-loc code{background:var(--muted);border:1px solid var(--border);border-radius:5px;padding:1px 6px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px;color:var(--fg)}
+.prompt-loc.dim code{color:var(--muted-fg)}
+.prompt-ta{font:12px/1.6 var(--mono);white-space:pre;resize:vertical;min-height:120px}
+.prompt-actions{display:flex;align-items:center;gap:10px;margin-top:10px}
+.prompt-msg{font-size:11.5px;word-break:break-all}
 /* ============ Markdown 渲染（FinalGoal） ============ */
 .md{font-size:13.5px;line-height:1.75;color:var(--ink-2,#334155);max-width:860px}
 .md h1,.md h2,.md h3,.md h4{color:var(--fg);font-weight:650;letter-spacing:-.01em;margin:1.1em 0 .5em;line-height:1.35}
@@ -258,6 +271,8 @@ details.panel .panel-b{padding-top:0}
       <div class="nav-sep"></div>
       <button class="nav-item" data-view="config">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>配置</button>
+      <button class="nav-item" data-view="prompts">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/><path d="M9 17h6"/><path d="M9 9h1"/></svg>提示词</button>
       <button class="nav-item" data-view="help">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>帮助</button>
     </nav>
@@ -599,6 +614,29 @@ details.panel .panel-b{padding-top:0}
         </div>
       </section>
 
+      <!-- ============ 提示词 ============ -->
+      <section class="view" id="view-prompts">
+        <div class="panel">
+          <div class="panel-h"><span class="t">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/><path d="M9 17h6"/><path d="M9 9h1"/></svg>
+            提示词管理</span>
+            <span class="badge text-bg-secondary" id="prompts-summary">—</span>
+            <span class="ms-auto">
+              <button type="button" class="btn btn-outline btn-sm" id="btn-prompts-reset-all">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                全部恢复内置</button>
+            </span></div>
+          <div class="panel-b">
+            <p class="text-secondary" style="font-size:12px;margin-bottom:10px">
+              以下为本项目的全部提示词（内置模板）。每个提示词都可以编辑并保存：保存后会写入
+              <code>%APPDATA%\curloop\prompts\&lt;key&gt;.txt</code>，之后发送给 Cursor 时优先使用你的版本；清空内容再保存 = 恢复内置。
+              占位符 <code>{project} {task} {goal}</code> 等在发送时会被自动替换。
+            </p>
+            <div id="prompts-list"></div>
+          </div>
+        </div>
+      </section>
+
       <!-- ============ 帮助 ============ -->
       <section class="view" id="view-help">
         <div class="panel mb-3">
@@ -697,7 +735,7 @@ function setConn(up){
 }
 
 // ============ 视图切换（Refactoring UI：一屏一焦点） ============
-const VIEW_TITLES = { overview:'总览', console:'控制台', timeline:'轨迹', queue:'队列', events:'事件', report:'报告', config:'配置', help:'帮助' };
+const VIEW_TITLES = { overview:'总览', console:'控制台', timeline:'轨迹', queue:'队列', events:'事件', report:'报告', config:'配置', prompts:'提示词', help:'帮助' };
 function switchView(name){
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === name));
@@ -707,6 +745,7 @@ function switchView(name){
   if(name === 'report') loadReport();
   if(name === 'queue') loadGoal();
   if(name === 'config') loadDetect();
+  if(name === 'prompts') loadPrompts();
   if(timelineChart) timelineChart.resize();
   if(activityChart) activityChart.resize();
 }
@@ -1127,6 +1166,69 @@ $('btn-detect-save').addEventListener('click', async () => {
   }
   $('console').appendChild(div);
   refreshStatus();
+});
+
+// ============ prompts（提示词管理） ============
+let promptsData = { dir:'', items:[] };
+async function loadPrompts(){
+  const d = await api('/api/prompts');
+  if(!d.ok) return;
+  promptsData = d;
+  const n = d.items.filter(i => i.source === 'override').length;
+  $('prompts-summary').textContent = (n ? n + ' 已覆盖 / ' : '') + d.items.length + ' 个提示词';
+  const list = $('prompts-list');
+  list.innerHTML = '';
+  for(const it of d.items){
+    const card = document.createElement('div');
+    card.className = 'prompt-card';
+    card.setAttribute('data-key', it.key);
+    const badge = it.source === 'override'
+      ? '<span class="badge" style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.35)">已覆盖</span>'
+      : '<span class="badge" style="background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.3)">内置</span>';
+    card.innerHTML =
+      '<div class="prompt-head">' +
+        '<div class="prompt-title">' + esc(it.label) + badge + '</div>' +
+        '<div class="prompt-desc">' + esc(it.description) + '</div>' +
+      '</div>' +
+      '<div class="prompt-meta">' +
+        '<span class="prompt-loc">内置: <code>' + esc(it.location) + '</code></span>' +
+        (it.source === 'override'
+          ? '<span class="prompt-loc">覆盖: <code>' + esc(it.overridePath) + '</code></span>'
+          : '<span class="prompt-loc dim">覆盖保存位置: <code>' + esc(d.dir + '\\' + it.key + '.txt') + '</code></span>') +
+        '<span class="prompt-loc dim">占位符: <code>' + esc(it.placeholders) + '</code></span>' +
+      '</div>' +
+      '<textarea class="form-control prompt-ta" spellcheck="false" rows="7">' + esc(it.content) + '</textarea>' +
+      '<div class="prompt-actions">' +
+        '<button type="button" class="btn btn-primary btn-sm prompt-save">保存</button>' +
+        '<button type="button" class="btn btn-outline btn-sm prompt-reset">恢复内置</button>' +
+        '<span class="prompt-msg"></span>' +
+      '</div>';
+    const ta = card.querySelector('.prompt-ta');
+    const msg = card.querySelector('.prompt-msg');
+    card.querySelector('.prompt-save').addEventListener('click', async () => {
+      const content = ta.value;
+      const r = await api('/api/prompts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ key: it.key, content }) });
+      msg.textContent = r.ok ? (content.trim() ? '已保存 → ' + r.overridePath : '已恢复内置') : ('保存失败: ' + (r.error || ''));
+      msg.style.color = r.ok ? L.green : L.red;
+      if(r.ok) loadPrompts();
+    });
+    card.querySelector('.prompt-reset').addEventListener('click', async () => {
+      const r = await api('/api/prompts/reset', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ key: it.key }) });
+      msg.textContent = r.ok ? '已恢复内置' : ('失败: ' + (r.error || ''));
+      msg.style.color = r.ok ? L.green : L.red;
+      if(r.ok) loadPrompts();
+    });
+    list.appendChild(card);
+  }
+}
+
+$('btn-prompts-reset-all').addEventListener('click', async () => {
+  const r = await api('/api/prompts/reset', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({}) });
+  const div = document.createElement('div');
+  div.textContent = '[web] 全部恢复内置: ' + (r.ok ? ('已重置 ' + (r.removed || []).length + ' 个覆盖') : ('失败: ' + (r.error || '')));
+  div.style.color = r.ok ? L.green : L.red;
+  $('console').appendChild(div);
+  if(r.ok) loadPrompts();
 });
 
 // ============ controls ============

@@ -8,6 +8,7 @@ import { isAdmin, stopFilePath } from './loop';
 import { INIT_GOAL, INIT_TODO } from './cli';
 import * as cursor from './cursor';
 import { parseAll } from './todoQueue';
+import { PROMPT_DEFS, PROMPT_OVERRIDE_DIR, promptOverridePath, promptSource } from './prompts';
 
 /**
  * curloop Web 界面（仿 dsh web）：`curloop web` 启动本地 HTTP 服务器并自动打开浏览器。
@@ -584,6 +585,73 @@ function router(): http.RequestListener {
           created.push(todoP);
         }
         sendJson(res, 200, { ok: true, created, existed: { FinalGoal: fs.existsSync(goalP), TODO: fs.existsSync(todoP) } });
+        return;
+      }
+      if (req.method === 'GET' && url === '/api/prompts') {
+        // 提示词清单：内置模板 + 用户覆盖状态（%APPDATA%\curloop\prompts\<key>.txt）
+        const items = PROMPT_DEFS.map((d) => {
+          const overridePath = promptOverridePath(d.key);
+          const source = promptSource(d.key);
+          let content = d.template;
+          let saved: string | null = null;
+          if (source === 'override') {
+            try {
+              saved = fs.readFileSync(overridePath, 'utf-8');
+              content = saved;
+            } catch {
+              saved = null;
+            }
+          }
+          return { key: d.key, label: d.label, description: d.description, location: d.location, placeholders: d.placeholders, source, overridePath, saved, content };
+        });
+        sendJson(res, 200, { ok: true, dir: PROMPT_OVERRIDE_DIR, items });
+        return;
+      }
+      if (req.method === 'POST' && url === '/api/prompts') {
+        // 保存单个提示词覆盖：body { key, content }；content 为空 = 恢复内置（删除覆盖文件）
+        const body = await readJsonBody(req);
+        const key = String(body['key'] ?? '').trim();
+        const def = PROMPT_DEFS.find((d) => d.key === key);
+        if (!def) {
+          sendJson(res, 400, { ok: false, error: `未知提示词 key: ${key}` });
+          return;
+        }
+        const p = promptOverridePath(key);
+        const content = String(body['content'] ?? '');
+        try {
+          if (!content.trim()) {
+            if (fs.existsSync(p)) fs.unlinkSync(p);
+          } else {
+            fs.mkdirSync(path.dirname(p), { recursive: true });
+            fs.writeFileSync(p, content, 'utf-8');
+          }
+        } catch (e) {
+          sendJson(res, 500, { ok: false, error: String(e) });
+          return;
+        }
+        logLine(`[web] /api/prompts 已保存 ${key} -> ${p}${content.trim() ? '' : '（已恢复内置）'}`);
+        sendJson(res, 200, { ok: true, key, overridePath: p, source: promptSource(key) });
+        return;
+      }
+      if (req.method === 'POST' && url === '/api/prompts/reset') {
+        // 恢复全部/单个内置：body { key? }；不带 key = 全部重置
+        const body = await readJsonBody(req);
+        const only = String(body['key'] ?? '').trim();
+        const keys = only ? [only] : PROMPT_DEFS.map((d) => d.key);
+        const removed: string[] = [];
+        for (const k of keys) {
+          const p = promptOverridePath(k);
+          try {
+            if (fs.existsSync(p)) {
+              fs.unlinkSync(p);
+              removed.push(k);
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+        logLine(`[web] /api/prompts/reset 已恢复内置: ${removed.join(', ') || '（无覆盖）'}`);
+        sendJson(res, 200, { ok: true, removed });
         return;
       }
       sendJson(res, 404, { ok: false, error: `not found: ${url}` });

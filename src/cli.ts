@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as readline from 'readline';
 import { Config, load as loadConfig } from './config';
 import * as loop from './loop';
+import { expandGoalPrompt } from './prompts';
 import { buildStatus, fmtTs, loadEvents, shortDetail } from './observer';
 import * as ui from './ui';
 import { RunState } from './runState';
@@ -124,17 +125,6 @@ async function confirmResume(cfg: Config): Promise<boolean> {
   return ['', 'y', 'yes'].includes(ans.trim().toLowerCase());
 }
 
-const EXPAND_PROMPT =
-  '项目：{project}\n' +
-  '用户为本项目定义了以下最终目标（简短描述）：\n' +
-  '--- 用户目标 ---\n{goal}\n--- 用户目标结束 ---\n' +
-  '请基于此目标在项目根目录完成初始化规划：\n' +
-  '1) 创建 FinalGoal.md：把目标扩写为完整规划（最终目标、硬门槛/交付物、验收标准、里程碑），' +
-  '定位为本仓库的最高级规划。\n' +
-  '2) 创建 TODO.md：根据 FinalGoal 列出当前最优先的 3~5 个具体可执行任务（`- [ ]` 格式）。\n' +
-  '3) 完成后回复：已完成规划。\n' +
-  '若文件已存在则更新而不是覆盖。';
-
 /** 询问是否自动扩写（默认是）。 */
 async function askExpand(): Promise<boolean> {
   const ans = (await askLine(ui.paint('需要自动扩写为完整 FinalGoal + 初始 TODO？[Y/n] ', ui.C.CYAN))) || '';
@@ -148,7 +138,7 @@ async function expandGoal(cfg: Config, goal: string): Promise<boolean> {
   const ok = await loop.sendAndWait(
     cfg,
     state,
-    EXPAND_PROMPT.replace('{project}', cfg.projectDir).replace('{goal}', goal),
+    expandGoalPrompt(cfg.projectDir, goal),
     'expand_goal',
   );
   return ok === 'ok';

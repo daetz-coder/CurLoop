@@ -16,6 +16,9 @@ import {
   FINAL_VERIFY_PROMPT,
   buildRestorePrompt,
   writeHarnessState,
+  extendPrompt,
+  goalExtendPrompt,
+  planInitialPrompt,
 } from './prompts';
 
 /** 无人值守 Cursor 编码循环 — state machine + CLI。
@@ -352,30 +355,6 @@ async function send(cfg: Config, state: RunState, task: TodoTask, prompt: string
   return false;
 }
 
-const EXTEND_PROMPT =
-  '项目：{project}\n' +
-  '请分析当前项目的状态（git 状态、最近改动、TODO.md 中已完成与未完成项、未解决事项），\n' +
-  '然后在 TODO.md 文件末尾追加 1 到 3 个新的、具体可执行的 `- [ ]` 任务，持续推进项目。\n' +
-  '如果确实没有值得做的新任务，就不要追加，直接回复：无新任务。';
-
-const GOAL_EXTEND_PROMPT =
-  '项目：{project}\n' +
-  '轻量规划已确认没有新的增量任务。以下是本项目的最终目标（FinalGoal）：\n' +
-  '--- FinalGoal 开始 ---\n{goal}\n--- FinalGoal 结束 ---\n' +
-  '请对照 FinalGoal 逐项检查硬门槛与交付物：\n' +
-  '1) 若全部已达成（目标完成）→ 不要追加任何任务，直接回复：目标完成\n' +
-  '2) 若仍有未达成的目标 → 在 TODO.md 末尾追加 1~3 个最优先的 `- [ ]` 任务来推进，并简要回复追加情况\n' +
-  '不要重复已有 TODO 中的任务。';
-
-const INITIAL_PLAN_PROMPT =
-  '项目：{project}\n' +
-  '以下是本项目的最终目标（FinalGoal）：\n' +
-  '--- FinalGoal 开始 ---\n{goal}\n--- FinalGoal 结束 ---\n' +
-  '请在项目根目录创建 TODO.md：\n' +
-  '- 用 `- [ ] ` 列出当前最优先的 3~5 个具体可执行任务（涉及具体文件/路径，按优先级排序）\n' +
-  '- 任务要具体到可直接执行，不要一次列太多（后续会继续规划补充）\n' +
-  '- 直接写入 TODO.md 文件，然后回复：已完成规划';
-
 const GOAL_CHUNK = 6000; // FinalGoal 可能很长；规划时只带前段（验收标准/硬门槛通常在前）
 
 function readFinalGoal(cfg: Config): string {
@@ -477,7 +456,7 @@ function reloadQueue(cfg: Config, state: RunState, eventPrefix: string): RunStat
 
 /** Level-1 light auto-extend: plan from the current TODO/project state only. */
 async function tryExtendTasks(cfg: Config, state: RunState): Promise<RunState | null> {
-  if (!(await extendOrSwitch(cfg, state, EXTEND_PROMPT.replace('{project}', cfg.projectDir), 'extend'))) {
+  if (!(await extendOrSwitch(cfg, state, extendPrompt(cfg.projectDir), 'extend'))) {
     return null;
   }
   return reloadQueue(cfg, state, 'extend');
@@ -490,7 +469,7 @@ async function tryGoalExtend(cfg: Config, state: RunState): Promise<RunState | n
     state.log('goal_extend_failed', { reason: 'FinalGoal not found' });
     return null;
   }
-  const prompt = GOAL_EXTEND_PROMPT.replace('{project}', cfg.projectDir).replace('{goal}', goal.slice(0, GOAL_CHUNK));
+  const prompt = goalExtendPrompt(cfg.projectDir, goal.slice(0, GOAL_CHUNK));
   if (!(await extendOrSwitch(cfg, state, prompt, 'goal_extend'))) return null;
   return reloadQueue(cfg, state, 'goal_extend');
 }
@@ -502,7 +481,7 @@ export async function planInitialTodo(cfg: Config, state: RunState): Promise<Run
     state.log('plan_todo_failed', { reason: 'FinalGoal not found' });
     return null;
   }
-  const prompt = INITIAL_PLAN_PROMPT.replace('{project}', cfg.projectDir).replace('{goal}', goal.slice(0, GOAL_CHUNK));
+  const prompt = planInitialPrompt(cfg.projectDir, goal.slice(0, GOAL_CHUNK));
   if (!(await extendOrSwitch(cfg, state, prompt, 'plan_todo'))) return null;
   return reloadQueue(cfg, state, 'plan_todo');
 }
