@@ -177,6 +177,11 @@ details.panel .panel-b{padding-top:0}
 #report{font:12px/1.6 var(--mono);white-space:pre-wrap;word-break:break-all;max-height:420px;overflow:auto;
   background:#fbfbfc;border:1px solid var(--border);border-radius:var(--r-md);padding:12px;color:#3f3f46}
 .help{font-size:12.5px;color:var(--muted-fg);line-height:1.8}
+.help a{color:var(--blue);text-decoration:none}
+.help a:hover{text-decoration:underline}
+.footer{color:var(--faint);font-size:12px;text-align:center;padding:18px 0;margin-top:8px}
+.footer a{color:var(--muted-fg);text-decoration:none}
+.footer a:hover{color:var(--blue)}
 
 /* mobile：侧边栏收成顶部导航 */
 @media(max-width:960px){
@@ -256,22 +261,11 @@ details.panel .panel-b{padding-top:0}
           <div class="panel-b">
             <form id="run-form">
               <div class="row g-2 mb-3">
-                <div class="col-md-7"><label class="form-label">目标项目</label>
+                <div class="col-md-8"><label class="form-label">目标项目</label>
                   <input class="form-control form-control-sm" id="f-project" placeholder="默认：当前项目"></div>
-                <div class="col-md-5">
-                  <label class="form-label">任务 / 换号上限</label>
-                  <div class="d-flex gap-2">
-                    <div class="stepper flex-grow-1">
-                      <button type="button" class="step-btn" data-step="f-tasks" data-d="-1" aria-label="任务减一">−</button>
-                      <input class="form-control form-control-sm" id="f-tasks" type="number" min="0" value="0" title="最大任务数（0=不限）">
-                      <button type="button" class="step-btn" data-step="f-tasks" data-d="1" aria-label="任务加一">+</button>
-                    </div>
-                    <div class="stepper flex-grow-1">
-                      <button type="button" class="step-btn" data-step="f-switches" data-d="-1" aria-label="换号减一">−</button>
-                      <input class="form-control form-control-sm" id="f-switches" type="number" min="0" value="0" title="最大换号数（0=不限）">
-                      <button type="button" class="step-btn" data-step="f-switches" data-d="1" aria-label="换号加一">+</button>
-                    </div>
-                  </div></div>
+                <div class="col-md-4 d-flex align-items-end">
+                  <span class="text-secondary" style="font-size:11.5px">运行参数（模式/上限/轮转等）统一在下方「运行参数」面板设置</span>
+                </div>
               </div>
               <div class="d-flex gap-2 flex-wrap">
                 <button type="submit" class="btn btn-primary" id="btn-run">
@@ -466,22 +460,48 @@ details.panel .panel-b{padding-top:0}
 
       <!-- ============ 帮助 ============ -->
       <section class="view" id="view-help">
+        <div class="panel mb-3">
+          <div class="panel-h"><span class="t">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
+            快速上手</span></div>
+          <div class="panel-b help">
+            <p class="mb-2">1. <b>初始化项目</b>：在「控制台」点「初始化项目」，输入最终目标 → 生成 <code>FinalGoal.md</code> / <code>TODO.md</code>；或用命令行 <code>curloop init --final-goal</code>。</p>
+            <p class="mb-2">2. <b>设置参数</b>：所有运行参数都在「控制台 → 运行参数」面板统一调整（模式 / 任务上限 / 换号上限 / 线程轮转 / 进度检查点 / 最终验收），点「保存参数」后<u>下次运行生效</u>。</p>
+            <p class="mb-2">3. <b>开始运行</b>：在「控制台」填入目标项目（默认当前项目）→ 点「开始运行」。运行日志实时显示在下方终端，刷新页面不中断。</p>
+            <p class="mb-0">4. <b>查看结果</b>：「总览」看统计与近 24h 活动；「轨迹」看任务时间线（支持缩放拖拽）；「队列 / 事件 / 报告」看明细。</p>
+          </div>
+        </div>
+        <div class="panel mb-3">
+          <div class="panel-h"><span class="t">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            使用须知</span></div>
+          <div class="panel-b help">
+            <p class="mb-2">· <b>运行模式</b>：默认跟随配置文件（dry-run，只读预览）；全链路测试请设为 <code>live</code>（需要管理员——用管理员终端运行 <code>curloop web</code>）。</p>
+            <p class="mb-2">· <b>自动换号</b>：撞到用量/登录限制时自动切换账号（需在配置中指定换号助手 <code>CursorLoginAssistant-*.exe</code> 与模板图片）。</p>
+            <p class="mb-2">· <b>停止</b>：写入 <code>&lt;项目&gt;/STOP</code> 文件 → loop 优雅收尾（退出码 2，watchdog 不重启）；删除文件可取消。Web 里点「■ 停止」即自动创建。</p>
+            <p class="mb-2">· <b>长对话</b>：<code>线程轮转</code> 每 N 个任务开新对话并用 <code>HARNESS_STATE.md</code>（自动生成的记忆）续接；<code>进度检查点</code> 让 Agent 定期写进度小结。</p>
+            <p class="mb-2">· <b>恢复</b>：中断/崩溃后状态自动保存（snapshot + TODO 合并），再次运行即可续跑；<code>report.json</code> 记录每次结束摘要。</p>
+            <p class="mb-0">· <b>终端命令</b>：<code>curloop web</code>（本界面）、<code>curloop run</code>、<code>curloop status</code>、<code>curloop plan</code>、<code>curloop init</code>；flag 模式 <code>curloop --check-config</code> / <code>--dry-run</code>。</p>
+          </div>
+        </div>
         <div class="panel">
           <div class="panel-h"><span class="t">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
-            说明</span></div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+            项目链接</span></div>
           <div class="panel-b help">
-            <p class="mb-2">· <b>运行 / 规划</b>：经子进程执行 <code>curloop run/plan</code>，日志实时回传，刷新页面不中断。</p>
-            <p class="mb-2">· <b>停止</b>：写入 <code>STOP</code> 文件让 loop 优雅收尾（退出码 2，watchdog 不重启）；删除文件可取消。</p>
-            <p class="mb-2">· <b>权限</b>：live / limit-sim 需要管理员——请用管理员终端运行 <code>curloop web</code>。</p>
-            <p class="mb-2">· <b>长对话</b>：<code>thread.rotate_every_tasks</code> 每 N 个任务自动 New Chat + 续接
-              （HARNESS_STATE.md + git + 剩余 TODO）；<code>prompt.checkpoint_every_tasks</code> 定期写进度小结。</p>
-            <p class="mb-2">· <b>记忆</b>：HARNESS_STATE.md 由 harness 在每次结束时自动生成（队列 + 账号 + 最近事件），新会话/恢复自动续接。</p>
-            <p class="mb-0">· <b>可视化</b>：轨迹时间线 / 活动图由 events.jsonl 客户端渲染（ECharts），支持滚轮缩放与拖拽。</p>
+            <p class="mb-2">· <b>GitHub</b>：<a href="https://github.com/daetz-coder/CurLoop" target="_blank" rel="noopener">github.com/daetz-coder/CurLoop</a> —— 源码 / Issue / 更新日志</p>
+            <p class="mb-2">· <b>npm</b>：<a href="https://www.npmjs.com/package/curloop" target="_blank" rel="noopener">www.npmjs.com/package/curloop</a> —— 安装：<code>npm install -g curloop</code></p>
+            <p class="mb-0">· 本地开发：<code>npm install &amp;&amp; npm run build &amp;&amp; npm link</code></p>
           </div>
         </div>
       </section>
 
+      <footer class="footer">
+        curloop · CursorHarness Web ·
+        <a href="https://github.com/daetz-coder/CurLoop" target="_blank" rel="noopener">GitHub</a> ·
+        <a href="https://www.npmjs.com/package/curloop" target="_blank" rel="noopener">npm</a> ·
+        仅绑定 127.0.0.1
+      </footer>
     </div>
   </main>
 </div>
@@ -801,11 +821,9 @@ async function refreshCharts(){
 // ============ controls ============
 $('run-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  // 模式由服务端决定（curloop web --mode live 或 config.json），界面保留一种即可
+  // 模式/上限/轮转等参数统一由「运行参数」面板持久化配置决定，此处只指定项目
   const body = {
     project: $('f-project').value.trim() || undefined,
-    maxTasks: Number($('f-tasks').value) || 0,
-    maxSwitches: Number($('f-switches').value) || 0,
   };
   const r = await api('/api/run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
   if(!r.ok){
