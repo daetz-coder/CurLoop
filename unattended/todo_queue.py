@@ -2,7 +2,8 @@
 
 Parses markdown checkboxes (`- [ ]`, `- [x]`, `- [X]`, `- [-]`), supports CRLF,
 indentation and bullets `-`/`*`/`+`. Generates the prompt fed to Cursor and
-flips a finished item back to `[x]` in-place (preserving original formatting).
+flips a finished item back to `[x]` by normalized text match (not frozen line
+number), preserving original line endings.
 """
 
 from __future__ import annotations
@@ -108,24 +109,31 @@ def parse_all(todo_file: Path) -> list[TodoTask]:
     return tasks
 
 
-def mark_done(todo_file: Path, line: int) -> bool:
-    """Flip the checkbox on the given 1-based line to `[x]`. True if changed.
+def mark_done(todo_file: Path, text: str) -> bool:
+    """Flip the first unchecked checkbox whose normalized text matches.
 
+    Matches by whitespace-collapsed lowercase text (not frozen line number),
+    so Agent inserts/deletes above the item do not mark the wrong row.
     Reads/writes bytes so CRLF and trailing-newline formatting are preserved
     (Path.read_text would apply universal-newline translation).
     """
     if not todo_file.exists():
         return False
+    target = _norm(text)
+    if not target:
+        return False
     raw = todo_file.read_bytes()
     crlf = b"\r\n" in raw
-    text = raw.decode("utf-8")
-    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-    if not (1 <= line <= len(lines)):
-        return False
-    m = CHECKBOX_RE.match(lines[line - 1])
-    if not m or m.group("state").lower() == "x":
-        return False
-    lines[line - 1] = f"{m.group('indent')}{m.group('bullet')} [x] {m.group('text')}"
-    sep = "\r\n" if crlf else "\n"
-    todo_file.write_bytes(sep.join(lines).encode("utf-8"))
-    return True
+    body = raw.decode("utf-8")
+    lines = body.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    for i, raw_line in enumerate(lines):
+        m = CHECKBOX_RE.match(raw_line)
+        if not m or m.group("state").lower() == "x":
+            continue
+        if _norm(m.group("text")) != target:
+            continue
+        lines[i] = f"{m.group('indent')}{m.group('bullet')} [x] {m.group('text')}"
+        sep = "\r\n" if crlf else "\n"
+        todo_file.write_bytes(sep.join(lines).encode("utf-8"))
+        return True
+    return False

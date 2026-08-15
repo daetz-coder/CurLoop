@@ -559,7 +559,8 @@ def run_task(cfg: Config, state: RunState, task: TodoTask, sim: dict[str, bool])
 
         outcome, detail = _wait_reply(cfg, state, task, sim, prompt)
         if outcome == "done":
-            mark_done(cfg.todo_file, task.line)
+            if not mark_done(cfg.todo_file, task.text):
+                print(f"[warn] mark_done 未匹配到 TODO 行: {task.text[:60]}")
             task.status = "done"
             task.done = True
             state.log("task_done", task=task.text[:60], detail=detail)

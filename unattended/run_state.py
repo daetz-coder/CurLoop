@@ -93,6 +93,7 @@ class RunState:
         fresh_unchecked = [t for t in fresh if not t.done]
         fresh_done_norms = {t.normalized() for t in fresh if t.done}
         fresh_unchecked_norms = {t.normalized() for t in fresh_unchecked}
+        fresh_by_norm = {t.normalized(): t for t in fresh}
 
         st = cls(snapshot_file, event_log_file, [])
         if not snapshot_file.exists():
@@ -113,6 +114,15 @@ class RunState:
             if t.status != "done" and t.normalized() in fresh_done_norms:
                 t.status = "done"
                 t.done = True
+            # Refresh line/indent/bullet/index from current TODO.md so
+            # mark_done-by-text still works even if Agent inserted lines above.
+            f = fresh_by_norm.get(t.normalized())
+            if f is not None:
+                t.line = f.line
+                t.indent = f.indent
+                t.bullet = f.bullet
+                t.index = f.index
+                t.text = f.text
 
         known_norms = {t.normalized(): t for t in snap_tasks}
 
