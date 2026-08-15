@@ -158,7 +158,6 @@ function getCfg(): Config {
 
 /** 更新用户配置：把分节参数合并进 %APPDATA%\curloop\config.json 并热重载。 */
 function applyConfigUpdate(updates: {
-  mode?: string;
   maxTasks?: number;
   maxSwitches?: number;
   rotateEveryTasks?: number;
@@ -179,7 +178,6 @@ function applyConfigUpdate(updates: {
       section[key] = v;
       merged[sec] = section;
     };
-    if (updates.mode !== undefined) merged['mode'] = updates.mode;
     if (updates.maxTasks !== undefined) setSec('control', 'max_tasks', updates.maxTasks);
     if (updates.maxSwitches !== undefined) setSec('retry', 'max_total_account_switches_per_run', updates.maxSwitches);
     if (updates.rotateEveryTasks !== undefined) setSec('thread', 'rotate_every_tasks', updates.rotateEveryTasks);
@@ -345,24 +343,21 @@ function router(): http.RequestListener {
       }
       if (req.method === 'POST' && url === '/api/run') {
         const body = await readJsonBody(req);
-        const mode = String(body['mode'] ?? cfg.mode);
+        // 本界面只开放「无人值守」模式：固定 live（换号/续接/直到目标完成），
+        // dry-run / limit-sim 仅 CLI 内部使用，不对用户开放
+        const mode = 'live';
         const project = body['project'] ? path.resolve(String(body['project'])) : cfg.projectDir;
         if (activeChild) {
           sendJson(res, 409, { ok: false, error: '已有任务在运行' });
           return;
         }
-        if ((mode === 'live' || mode === 'limit-sim') && !isAdmin()) {
-          sendJson(res, 403, { ok: false, error: 'live / limit-sim 需要管理员权限（请用管理员终端启动 curloop web）' });
+        if (!isAdmin()) {
+          sendJson(res, 403, { ok: false, error: '无人值守（live）需要管理员权限——请用管理员终端运行 curloop web' });
           return;
         }
         const runCfg = cfgFor(project);
         runCfg.mode = mode;
-        const extra: string[] = ['--mode', mode];
-        const mt = Number(body['maxTasks'] ?? 0);
-        if (mt > 0) extra.push('--max-tasks', String(mt));
-        const ms = Number(body['maxSwitches'] ?? 0);
-        if (ms > 0) extra.push('--max-switches', String(ms));
-        const r = spawnTool(runCfg, 'run', extra);
+        const r = spawnTool(runCfg, 'run', ['--mode', mode]);
         sendJson(res, r.ok ? 200 : 500, r);
         return;
       }
@@ -402,17 +397,15 @@ function router(): http.RequestListener {
         return;
       }
       if (req.method === 'POST' && url === '/api/config') {
-        // 运行参数持久化：写入 %APPDATA%\curloop\config.json 并热重载
+        // 运行参数持久化：写入 %APPDATA%\curloop\config.json 并热重载（模式固定 live，不收）
         const body = await readJsonBody(req);
         const updates: {
-          mode?: string;
           maxTasks?: number;
           maxSwitches?: number;
           rotateEveryTasks?: number;
           checkpointEveryTasks?: number;
           finalVerify?: boolean;
         } = {};
-        if (body['mode'] !== undefined) updates.mode = String(body['mode']);
         if (body['maxTasks'] !== undefined) updates.maxTasks = Math.max(0, Math.trunc(Number(body['maxTasks'])));
         if (body['maxSwitches'] !== undefined) updates.maxSwitches = Math.max(0, Math.trunc(Number(body['maxSwitches'])));
         if (body['rotateEveryTasks'] !== undefined) updates.rotateEveryTasks = Math.max(0, Math.trunc(Number(body['rotateEveryTasks'])));

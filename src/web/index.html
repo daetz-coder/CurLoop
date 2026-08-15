@@ -108,6 +108,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-
 
 /* ============ forms ============ */
 .form-label{font-size:11px;color:var(--muted-fg);font-weight:500;margin-bottom:4px;display:block}
+.param-hint{color:var(--faint);font-size:11px;line-height:1.5;margin-top:4px}
 .form-control,.form-select{border-radius:var(--r-sm);border-color:var(--border-strong);font-size:13px;color:var(--fg);
   min-height:34px;background:#fff;box-shadow:none;transition:border-color .15s,box-shadow .15s}
 .form-control:focus,.form-select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,122,255,.14)}
@@ -285,7 +286,7 @@ details.panel .panel-b{padding-top:0}
                 <div class="col-md-8"><label class="form-label">目标项目</label>
                   <input class="form-control form-control-sm" id="f-project" placeholder="默认：当前项目"></div>
                 <div class="col-md-4 d-flex align-items-end">
-                  <span class="text-secondary" style="font-size:11.5px">运行参数（模式/上限/轮转等）统一在下方「运行参数」面板设置</span>
+                  <span class="text-secondary" style="font-size:11.5px">模式：无人值守（live）—— 自动执行队列 / 换号 / 续接，直到目标完成；上限与轮转等参数在下方面板设置</span>
                 </div>
               </div>
               <div class="d-flex gap-2 flex-wrap">
@@ -333,49 +334,49 @@ details.panel .panel-b{padding-top:0}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             运行参数 · 保存到配置文件（%APPDATA%\curloop\config.json）</span></div>
           <div class="panel-b">
-            <div class="row g-2 mb-2">
-              <div class="col-md-3"><label class="form-label">模式</label>
-                <select class="form-select form-select-sm" id="p-mode">
-                  <option value="dry-run">dry-run（只读预览）</option>
-                  <option value="live">live（无人值守）</option>
-                  <option value="limit-sim">limit-sim（换号链路测试）</option>
-                </select></div>
-              <div class="col-md-3">
+            <div class="row g-2 mb-1">
+              <div class="col-md-4">
                 <label class="form-label">任务上限（0=不限）</label>
                 <div class="stepper">
                   <button type="button" class="step-btn" data-step="p-tasks" data-d="-1" aria-label="任务上限减一">−</button>
                   <input class="form-control form-control-sm" id="p-tasks" type="number" min="0" value="0">
                   <button type="button" class="step-btn" data-step="p-tasks" data-d="1" aria-label="任务上限加一">+</button>
-                </div></div>
-              <div class="col-md-3">
+                </div>
+                <div class="param-hint">本次最多完成多少个任务后自动收尾</div></div>
+              <div class="col-md-4">
                 <label class="form-label">换号上限（0=不限）</label>
                 <div class="stepper">
                   <button type="button" class="step-btn" data-step="p-switches" data-d="-1" aria-label="换号上限减一">−</button>
                   <input class="form-control form-control-sm" id="p-switches" type="number" min="0" value="0">
                   <button type="button" class="step-btn" data-step="p-switches" data-d="1" aria-label="换号上限加一">+</button>
-                </div></div>
-              <div class="col-md-3">
+                </div>
+                <div class="param-hint">撞用量/登录限制时，本次最多自动切换几次账号</div></div>
+              <div class="col-md-4">
                 <label class="form-label">线程轮转（0=关）</label>
                 <div class="stepper">
                   <button type="button" class="step-btn" data-step="p-rotate" data-d="-1" aria-label="轮转减一">−</button>
-                  <input class="form-control form-control-sm" id="p-rotate" type="number" min="0" value="0" title="每 N 个任务开新对话（长对话压缩）">
+                  <input class="form-control form-control-sm" id="p-rotate" type="number" min="0" value="0">
                   <button type="button" class="step-btn" data-step="p-rotate" data-d="1" aria-label="轮转加一">+</button>
-                </div></div>
+                </div>
+                <div class="param-hint">每 N 个任务自动开新对话（防会话过长降质）：先写进度记忆，再点 New Chat 并用续接提示词恢复上下文</div></div>
             </div>
             <div class="row g-2 mb-2">
-              <div class="col-md-3">
+              <div class="col-md-4">
                 <label class="form-label">进度检查点（0=关）</label>
                 <div class="stepper">
                   <button type="button" class="step-btn" data-step="p-checkpoint" data-d="-1" aria-label="检查点减一">−</button>
-                  <input class="form-control form-control-sm" id="p-checkpoint" type="number" min="0" value="0" title="每 N 个任务让 Agent 写 HARNESS_STATE.md">
+                  <input class="form-control form-control-sm" id="p-checkpoint" type="number" min="0" value="0">
                   <button type="button" class="step-btn" data-step="p-checkpoint" data-d="1" aria-label="检查点加一">+</button>
-                </div></div>
-              <div class="col-md-3"><label class="form-label">最终验收</label>
+                </div>
+                <div class="param-hint">每 N 个任务让 Cursor 把进度小结写入 HARNESS_STATE.md（持久记忆），中断/换号/轮转后都能续接</div></div>
+              <div class="col-md-4">
+                <label class="form-label">最终验收</label>
                 <select class="form-select form-select-sm" id="p-verify">
                   <option value="false">关</option>
                   <option value="true">开</option>
-                </select></div>
-              <div class="col-md-6 d-flex align-items-end">
+                </select>
+                <div class="param-hint">开：队列空且自动扩展无新任务时，让 Cursor 对照 FinalGoal 硬门槛做最后验收，有遗漏补任务，否则判定目标完成</div></div>
+              <div class="col-md-4 d-flex align-items-end">
                 <button type="button" class="btn btn-outline" id="btn-save-config">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
                   保存参数</button>
@@ -496,7 +497,7 @@ details.panel .panel-b{padding-top:0}
             快速上手</span></div>
           <div class="panel-b help">
             <p class="mb-2">1. <b>初始化项目</b>：在「控制台」点「初始化项目」，输入最终目标 → 生成 <code>FinalGoal.md</code> / <code>TODO.md</code>；或用命令行 <code>curloop init --final-goal</code>。</p>
-            <p class="mb-2">2. <b>设置参数</b>：所有运行参数都在「控制台 → 运行参数」面板统一调整（模式 / 任务上限 / 换号上限 / 线程轮转 / 进度检查点 / 最终验收），点「保存参数」后<u>下次运行生效</u>。</p>
+            <p class="mb-2">2. <b>设置参数</b>：所有运行参数都在「控制台 → 运行参数」面板统一调整（任务上限 / 换号上限 / 线程轮转 / 进度检查点 / 最终验收），点「保存参数」后<u>下次运行生效</u>。</p>
             <p class="mb-2">3. <b>开始运行</b>：在「控制台」填入目标项目（默认当前项目）→ 点「开始运行」。运行日志实时显示在下方终端，刷新页面不中断。</p>
             <p class="mb-0">4. <b>查看结果</b>：「总览」看统计与近 24h 活动；「轨迹」看任务时间线（支持缩放拖拽）；「队列 / 事件 / 报告」看明细。</p>
           </div>
@@ -506,7 +507,7 @@ details.panel .panel-b{padding-top:0}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
             使用须知</span></div>
           <div class="panel-b help">
-            <p class="mb-2">· <b>运行模式</b>：默认跟随配置文件（dry-run，只读预览）；全链路测试请设为 <code>live</code>（需要管理员——用管理员终端运行 <code>curloop web</code>）。</p>
+            <p class="mb-2">· <b>运行模式</b>：本界面固定「无人值守（live）」——自动执行队列、撞限制自动换号、续接直到目标完成；需要管理员——请用管理员终端运行 <code>curloop web</code>。</p>
             <p class="mb-2">· <b>自动换号</b>：撞到用量/登录限制时自动切换账号（需在配置中指定换号助手 <code>CursorLoginAssistant-*.exe</code> 与模板图片）。</p>
             <p class="mb-2">· <b>停止</b>：写入 <code>&lt;项目&gt;/STOP</code> 文件 → loop 优雅收尾（退出码 2，watchdog 不重启）；删除文件可取消。Web 里点「■ 停止」即自动创建。</p>
             <p class="mb-2">· <b>长对话</b>：<code>线程轮转</code> 每 N 个任务开新对话并用 <code>HARNESS_STATE.md</code>（自动生成的记忆）续接；<code>进度检查点</code> 让 Agent 定期写进度小结。</p>
@@ -591,9 +592,8 @@ async function refreshStatus(){
   // 项目路径只在侧边栏底部显示一处
   $('h-project').textContent = d.project;
   $('h-project').title = d.project + '\n' + d.stateDir;
-  // 运行参数面板（交互式，读取当前配置）
+  // 运行参数面板（交互式，读取当前配置；模式固定无人值守 live）
   const cf = d.config || {};
-  if ($('p-mode')) $('p-mode').value = cf.mode || 'dry-run';
   if ($('p-tasks')) $('p-tasks').value = cf.maxTasks || 0;
   if ($('p-switches')) $('p-switches').value = cf.maxSwitches || 0;
   if ($('p-rotate')) $('p-rotate').value = cf.rotateEveryTasks || 0;
@@ -939,7 +939,6 @@ $('btn-timeline-refresh').addEventListener('click', () => refreshCharts());
 // 保存运行参数（持久化到 %APPDATA%\curloop\config.json 并热重载）
 $('btn-save-config').addEventListener('click', async () => {
   const body = {
-    mode: $('p-mode').value,
     maxTasks: Number($('p-tasks').value) || 0,
     maxSwitches: Number($('p-switches').value) || 0,
     rotateEveryTasks: Number($('p-rotate').value) || 0,
