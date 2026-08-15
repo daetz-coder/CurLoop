@@ -377,7 +377,7 @@ details.panel .panel-b{padding-top:0}
                   <summary>手动向 Cursor 发送消息（人在回路 / 调试）<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
                   <div class="panel-b">
                     <label class="form-label">消息内容（发送到 Cursor 当前会话；需 Cursor 带 CDP 运行）</label>
-                    <textarea class="form-control mb-2" id="f-ask" rows="2" placeholder="例如：现在项目进度如何？先别改代码，只回答。"></textarea>
+                    <textarea class="form-control mb-2" id="f-ask" rows="2" placeholder="例如：现在项目进度如何？先别改代码，只回答。（Cursor 未运行会自动唤醒并等待回复）"></textarea>
                     <button type="button" class="btn btn-outline btn-sm" id="btn-ask">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
                       发送</button>
@@ -1292,15 +1292,28 @@ $('btn-ask').addEventListener('click', async () => {
   if(!prompt) return;
   const box = $('console');
   const div = document.createElement('div');
-  div.textContent = '[web] 发送给 Cursor: ' + prompt.slice(0, 120);
+  div.textContent = '[web] 发送给 Cursor（未运行会自动唤醒）: ' + prompt.slice(0, 120);
   div.style.color = L.cyan;
   box.appendChild(div);
-  const r = await api('/api/ask', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt, project: $('f-project').value.trim() || undefined }) });
-  const d2 = document.createElement('div');
-  d2.textContent = '[web] ask 结果: ' + (r.ok ? '已发送（去 Cursor 查看回复）' : (r.error || JSON.stringify(r.detail || '')));
-  d2.style.color = r.ok ? L.green : L.red;
-  box.appendChild(d2);
-  $('f-ask').value = '';
+  $('btn-ask').disabled = true;
+  try {
+    const r = await api('/api/ask', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt, project: $('f-project').value.trim() || undefined, wait: true }) });
+    const d2 = document.createElement('div');
+    if (r.ok && r.state === 'done') {
+      d2.textContent = '[web] Cursor 已回复: ' + String(r.reply || '').slice(0, 1500);
+      d2.style.color = L.green;
+    } else if (r.ok) {
+      d2.textContent = '[web] 已发送，等待回复超时或状态 ' + (r.state || '?') + '（去 Cursor 查看）';
+      d2.style.color = L.yellow;
+    } else {
+      d2.textContent = '[web] ask 失败: ' + (r.error || JSON.stringify(r.detail || ''));
+      d2.style.color = L.red;
+    }
+    box.appendChild(d2);
+    if (r.ok && r.state === 'done') $('f-ask').value = '';
+  } finally {
+    $('btn-ask').disabled = false;
+  }
 });
 
 $('btn-refresh').addEventListener('click', () => { refreshStatus(); refreshEvents(); refreshCharts(); loadReport(); loadGoal(); });

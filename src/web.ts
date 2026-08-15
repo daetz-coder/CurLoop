@@ -7,6 +7,8 @@ import { buildStatus, loadEvents, loadSnapshot } from './observer';
 import { isAdmin, stopFilePath } from './loop';
 import { INIT_GOAL, INIT_TODO } from './cli';
 import * as cursor from './cursor';
+import { CompletionTracker } from './detection';
+import { sleep } from './cdp';
 import { parseAll } from './todoQueue';
 import { PROMPT_DEFS, PROMPT_OVERRIDE_DIR, promptOverridePath, promptSource } from './prompts';
 
@@ -468,23 +470,73 @@ function router(): http.RequestListener {
         return;
       }
       if (req.method === 'POST' && url === '/api/ask') {
-        // 人在回路：手动向 Cursor 发送一条消息（调试/介入）。需要 Cursor 带 CDP 运行。
+        // 人在回路：手动向 Cursor 发送一条消息（调试/介入）。
+        // 唤醒链路：若 Cursor 未运行（CDP 未就绪）→ ensureReady 自动启动并等待 DOM 就绪 → 再输入。
+        // 默认只发送不等待；body.wait = true 时轮询等待回复并返回（最多 5 分钟）。
         const body = await readJsonBody(req);
         const prompt = String(body['prompt'] ?? '').trim();
         if (!prompt) {
           sendJson(res, 400, { ok: false, error: 'prompt 为空' });
           return;
         }
+        const wantWait = body['wait'] === true || body['wait'] === 'true' || body['wait'] === 1;
         const project = body['project'] ? path.resolve(String(body['project'])) : cfg.projectDir;
         const askCfg = cfgFor(project);
         cursor.init(askCfg);
+        const wake: Record<string, unknown> = {};
         if (!(await cursor.cdpUp(askCfg.cursor.port))) {
-          sendJson(res, 409, { ok: false, error: 'CDP 未就绪（Cursor 未带调试端口运行）' });
-          return;
+          // Cursor 未运行：自动唤醒（启动 + 等 CDP + 等 DOM + 关弹窗）
+          logLine(`[web] /api/ask 唤醒 Cursor（CDP ${askCfg.cursor.port} 未就绪，自动启动）...`);
+          const er = await cursor.ensureReady(askCfg, project, true);
+          wake['ensureReady'] = er;
+          if (!er['ok']) {
+            const reason = String(er['errors'] ?? 'not ready');
+            logLine(`[web] /api/ask 唤醒失败: ${reason}`);
+            sendJson(res, 502, { ok: false, error: `唤醒 Cursor 失败: ${reason}`, wake });
+            return;
+          }
+        } else {
+          wake['ensureReady'] = { ok: true, alreadyRunning: true };
         }
         const sr = await cursor.sendPrompt(askCfg, prompt, true);
-        logLine(`[web] /api/ask -> ${sr['ok'] ? '已发送' : '失败: ' + String(sr['error'] ?? JSON.stringify(sr['type'] ?? ''))}`);
-        sendJson(res, sr['ok'] ? 200 : 500, { ok: Boolean(sr['ok']), detail: sr });
+        if (!sr['ok']) {
+          const type = (sr['type'] as Record<string, unknown>) || {};
+          const reason = String(sr['error'] || type['reason'] || 'send failed');
+          logLine(`[web] /api/ask 发送失败: ${reason}`);
+          sendJson(res, 500, { ok: false, error: `发送失败: ${reason}`, wake, detail: sr });
+          return;
+        }
+        logLine(`[web] /api/ask 已发送（wait=${wantWait}）`);
+        if (!wantWait) {
+          sendJson(res, 200, { ok: true, wake, sent: true });
+          return;
+        }
+        // 等待回复（最长 5 分钟）：与 run 相同完成判定（稳定轮询）
+        const tracker = new CompletionTracker(
+          askCfg.timeouts.completionStablePolls,
+          askCfg.timeouts.minElapsedBeforeCompleteS,
+          askCfg.timeouts.replyMaxS,
+        );
+        let prev = new Set<string>();
+        const interval = askCfg.timeouts.completionPollIntervalS || 3;
+        const deadline = Date.now() + 5 * 60 * 1000;
+        let last: Record<string, unknown> = { state: 'busy' };
+        while (Date.now() < deadline) {
+          await sleep(interval);
+          last = await cursor.pollReply(askCfg, tracker, prev);
+          const st = String(last['state'] || '');
+          if (st === 'done' || st === 'limit' || st === 'logged_out' || st === 'hard_timeout' || st === 'no_page' || st === 'cdp_error') break;
+        }
+        const reply = (last['reply'] as Record<string, unknown>) || {};
+        const replyText = String(reply['lastFull'] || reply['lastTail'] || '');
+        logLine(`[web] /api/ask 完成 state=${String(last['state'])} replyLen=${replyText.length}`);
+        sendJson(res, 200, {
+          ok: last['state'] === 'done',
+          wake,
+          sent: true,
+          state: last['state'],
+          reply: replyText.slice(0, 4000),
+        });
         return;
       }
       if (req.method === 'GET' && url === '/api/detect') {

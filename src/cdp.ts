@@ -226,7 +226,7 @@ export const PROBE_JS = String.raw`
     const t = textOf(el);
     const aria = el.getAttribute('aria-label') || '';
     const title = el.getAttribute('title') || '';
-    const blob = \`\${t} \${aria} \${title}\`.trim();
+    const blob = (t + ' ' + aria + ' ' + title).trim();
     if (!blob) return;
     const r = rectOf(el);
     if (!r.visible) return;
@@ -262,7 +262,7 @@ export const PROBE_JS = String.raw`
   const uniq = [];
   const seen = new Set();
   for (const item of inputs) {
-    const key = \`\${item.rect.x},\${item.rect.y},\${item.rect.w},\${item.rect.h},\${item.kind}\`;
+    const key = item.rect.x + ',' + item.rect.y + ',' + item.rect.w + ',' + item.rect.h + ',' + item.kind;
     if (seen.has(key)) continue;
     seen.add(key);
     uniq.push(item);
