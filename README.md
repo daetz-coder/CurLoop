@@ -22,7 +22,7 @@
   - `web.ts` + `web/index.html` — Web 界面（仿 dsh web）：本地 HTTP 服务器、统计/轨迹可视化、远程运行控制
 - `bin/curloop.js` — Node 入口（flag 参数 → loop 直通；子命令/空 → 交互 CLI）
 
-仓库内 `unattended/*.py` 为旧 Python 实现，仅作参考/回归对比，不再维护；入口一律走 `dist/`。
+`unattended/*.bat` 为本地开发启动器（自提权 + watchdog），入口一律走 `bin/curloop.js` → `dist/`。
 
 ## 安装
 
