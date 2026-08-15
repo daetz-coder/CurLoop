@@ -12,12 +12,23 @@
 npm install -g curloop
 ```
 
-国内网络下载 Python 慢时，可先设置镜像源再安装：
+国内网络下载 Python 慢或失败（`ECONNRESET`）时：
 
 ```powershell
-# Windows PowerShell
-$env:CURSOR_HARNESS_PYTHON_URL = "https://<你的镜像>/cpython-3.12.13%2B20260807-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
-npm install -g curloop
+# 方式 A：指定镜像 URL 再装
+$env:CURSOR_HARNESS_PYTHON_URL = "https://<镜像>/cpython-3.12.13%2B20260807-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
+npm install -g curloop --registry https://registry.npmjs.org
+
+# 方式 B：跳过 postinstall，手动放入 runtime\python\python.exe 后再 pip
+npm install -g curloop --registry https://registry.npmjs.org --ignore-scripts
+```
+
+若出现 `EPERM` 删不掉旧目录：先关掉占用该目录的终端/杀毒扫描，再：
+
+```powershell
+npm uninstall -g curloop
+Remove-Item -Recurse -Force "$env:APPDATA\npm\node_modules\curloop" -ErrorAction SilentlyContinue
+npm install -g curloop --registry https://registry.npmjs.org
 ```
 
 ## 快速开始

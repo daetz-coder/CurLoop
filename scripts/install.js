@@ -5,13 +5,14 @@
  *      到 <pkg>/runtime/python/（已存在则跳过下载）
  *   2) pip install -r requirements.txt
  *
- * 下载源默认 GitHub releases；国内/内网可设环境变量 CURSOR_HARNESS_PYTHON_URL
- * 指向镜像（tar.gz，python-build-standalone install_only 包）。
+ * 下载源：默认 GitHub；失败时自动试若干镜像。也可设 CURSOR_HARNESS_PYTHON_URL
+ * 指向自定义镜像（tar.gz，python-build-standalone install_only 包）。
  */
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
+const http = require('http');
 const tar = require('tar');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -22,21 +23,36 @@ const PY_EXE = path.join(PY_DIR, 'python.exe');
 // python-build-standalone 锁定版本（可复现；stripped 去掉调试符号更小）
 const PY_VER = '3.12.13';
 const TAG = '20260807';
-const DEFAULT_URL =
-  `https://github.com/astral-sh/python-build-standalone/releases/download/${TAG}/` +
+const ASSET =
   `cpython-${PY_VER}%2B${TAG}-x86_64-pc-windows-msvc-install_only_stripped.tar.gz`;
+const GH_PATH =
+  `astral-sh/python-build-standalone/releases/download/${TAG}/${ASSET}`;
+const DEFAULT_URL = `https://github.com/${GH_PATH}`;
+const MIRROR_URLS = [
+  `https://ghfast.top/https://github.com/${GH_PATH}`,
+  `https://gitmirror.com/https://github.com/${GH_PATH}`,
+  `https://mirror.ghproxy.com/https://github.com/${GH_PATH}`,
+];
 
 function log(...a) { console.log('[curloop install]', ...a); }
 function err(...a) { console.error('[curloop install]', ...a); }
 
-/** https GET 下载（手动跟随 302/301 重定向，Node 原生模块不自动跟）。 */
-function download(url, dest) {
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** https/http GET 下载（手动跟随重定向；带超时）。 */
+function download(url, dest, timeoutMs = 120000) {
   return new Promise((resolve, reject) => {
-    const req = https.get(url, (res) => {
+    const mod = url.startsWith('http://') ? http : https;
+    const req = mod.get(url, { timeout: timeoutMs }, (res) => {
       const code = res.statusCode || 0;
       if (code >= 300 && code < 400 && res.headers.location) {
         res.resume();
-        return download(res.headers.location, dest).then(resolve, reject);
+        const next = res.headers.location.startsWith('http')
+          ? res.headers.location
+          : new URL(res.headers.location, url).href;
+        return download(next, dest, timeoutMs).then(resolve, reject);
       }
       if (code !== 200) {
         res.resume();
@@ -48,8 +64,41 @@ function download(url, dest) {
       out.on('error', reject);
       res.on('error', reject);
     });
+    req.on('timeout', () => {
+      req.destroy(new Error(`timeout ${timeoutMs}ms (${url})`));
+    });
     req.on('error', reject);
   });
+}
+
+function candidateUrls() {
+  const envUrl = (process.env.CURSOR_HARNESS_PYTHON_URL || '').trim();
+  const list = [];
+  if (envUrl) list.push(envUrl);
+  list.push(DEFAULT_URL, ...MIRROR_URLS);
+  return [...new Set(list)];
+}
+
+async function downloadWithFallback(dest) {
+  const urls = candidateUrls();
+  let lastErr = null;
+  for (let i = 0; i < urls.length; i++) {
+    const url = urls[i];
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        log(`下载嵌入式 Python ${PY_VER} (~21MB) [${i + 1}/${urls.length} try${attempt}] ...`);
+        log(`  ${url}`);
+        await download(url, dest);
+        return url;
+      } catch (e) {
+        lastErr = e;
+        err(`  失败: ${e.message}`);
+        try { fs.unlinkSync(dest); } catch { /* ignore */ }
+        await sleep(800 * attempt);
+      }
+    }
+  }
+  throw lastErr || new Error('all download sources failed');
 }
 
 async function ensurePython() {
@@ -57,15 +106,22 @@ async function ensurePython() {
     log('嵌入式 Python 已存在，跳过下载:', PY_EXE);
     return;
   }
-  const url = process.env.CURSOR_HARNESS_PYTHON_URL || DEFAULT_URL;
   fs.mkdirSync(PY_DIR, { recursive: true });
   const tarball = path.join(RUNTIME, '_python.tar.gz');
-  log(`下载嵌入式 Python ${PY_VER} (${Math.round(21)}MB) ...`);
   try {
-    await download(url, tarball);
+    await downloadWithFallback(tarball);
   } catch (e) {
     err('下载失败:', e.message);
-    err('可设置环境变量 CURSOR_HARNESS_PYTHON_URL 指向镜像（install_only tar.gz）后重新 npm install。');
+    err('国内网络常无法直连 GitHub。可选：');
+    err('  1) 设置镜像后再装：');
+    err('       $env:CURSOR_HARNESS_PYTHON_URL = "<镜像 tar.gz URL>"');
+    err('       npm install -g curloop --registry https://registry.npmjs.org');
+    err('  2) 跳过下载，手动放入 runtime：');
+    err('       npm install -g curloop --registry https://registry.npmjs.org --ignore-scripts');
+    err('       将 python-build-standalone 解压到：');
+    err(`       ${PY_EXE}`);
+    err('       然后：');
+    err(`       & "${PY_EXE}" -m pip install -r requirements.txt`);
     process.exit(1);
   }
   log('解压中...');
