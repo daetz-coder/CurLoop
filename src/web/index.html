@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>curloop · CursorHarness Web</title>
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --line:#30363d;
+  --text:#e6edf3; --dim:#8b949e; --accent:#58a6ff; --green:#3fb950;
+  --red:#f85149; --yellow:#d29922; --cyan:#39c5cf; --magenta:#bc8cff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font:14px/1.5 "Segoe UI","Microsoft YaHei",system-ui,sans-serif;padding:16px}
+a{color:var(--accent);text-decoration:none}
+header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.logo{font-size:20px;font-weight:700;color:var(--cyan)}
+.logo span{color:var(--dim);font-weight:400;font-size:13px}
+.badge{padding:2px 10px;border-radius:10px;font-size:12px;background:var(--panel2);border:1px solid var(--line)}
+.badge.ok{color:var(--green);border-color:var(--green)}
+.badge.warn{color:var(--yellow);border-color:var(--yellow)}
+.badge.bad{color:var(--red);border-color:var(--red)}
+.badge.info{color:var(--accent);border-color:var(--accent)}
+#h-project{color:var(--dim);font-family:Consolas,monospace}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+.card .k{color:var(--dim);font-size:12px}
+.card .v{font-size:22px;font-weight:700;margin-top:2px}
+.card .v small{font-size:12px;color:var(--dim);font-weight:400}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+@media(max-width:1100px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.panel h2{font-size:14px;color:var(--cyan);margin-bottom:10px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.panel h3{font-size:13px;color:var(--dim);margin:12px 0 6px}
+label{color:var(--dim);font-size:12px;display:block;margin:6px 0 2px}
+input,select,textarea{background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:6px 8px;font:inherit;width:100%}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
+textarea{font-family:Consolas,monospace;min-height:70px}
+button{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:7px 14px;cursor:pointer;font:inherit}
+button:hover{border-color:var(--accent)}
+button.primary{background:#1f6feb;border-color:#1f6feb;color:#fff}
+button.danger{background:#7d2828;border-color:#7d2828;color:#fff}
+button:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin:8px 0}
+.row .grow{flex:1}
+.console{background:#010409;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:12px/1.5 Consolas,"Courier New",monospace;height:280px;overflow-y:auto;white-space:pre-wrap;word-break:break-all}
+.console .ts{color:var(--dim)}
+ul#queue{list-style:none}
+ul#queue li{padding:4px 0;border-bottom:1px dashed var(--line);font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{text-align:left;padding:4px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--dim);font-weight:400}
+.ev-ok{color:var(--green)} .ev-fail{color:var(--red)} .ev-run{color:var(--cyan)} .ev-wait{color:var(--yellow)} .ev-dim{color:var(--dim)}
+#timeline{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;margin-top:6px}
+.hint{color:var(--dim);font-size:12px;margin-top:6px}
+#report{font:12px/1.5 Consolas,monospace;white-space:pre-wrap;word-break:break-all;max-height:260px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px}
+#accounts .acct{padding:4px 0;font-size:13px;border-bottom:1px dashed var(--line)}
+.spin{display:inline-block;width:10px;height:10px;border:2px solid var(--dim);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;vertical-align:-1px}
+@keyframes spin{to{transform:rotate(360deg)}}
+details{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-top:10px}
+summary{cursor:pointer;color:var(--accent);font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">curloop <span>CursorHarness Web</span></div>
+  <span class="badge info" id="h-mode">mode —</span>
+  <span class="badge" id="h-admin">权限检测中…</span>
+  <span class="badge" id="h-run">未运行</span>
+  <span class="badge ok" id="h-conn">已连接</span>
+  <span id="h-project">—</span>
+</header>
+
+<section class="cards" id="cards"></section>
+
+<div class="grid">
+  <div class="panel">
+    <h2>控制台</h2>
+    <form id="run-form">
+      <div class="row">
+        <div class="grow"><label>模式</label>
+          <select id="f-mode">
+            <option value="dry-run">dry-run（只读预览）</option>
+            <option value="live">live（无人值守，需管理员）</option>
+            <option value="limit-sim">limit-sim（换号链路测试，需管理员）</option>
+          </select>
+        </div>
+        <div class="grow"><label>目标项目</label><input id="f-project" placeholder="默认：当前项目"></div>
+        <div><label>最大任务数</label><input id="f-tasks" type="number" min="0" placeholder="0=不限" style="width:110px"></div>
+        <div><label>最大换号</label><input id="f-switches" type="number" min="0" placeholder="0=不限" style="width:110px"></div>
+      </div>
+      <div class="row">
+        <button type="submit" class="primary" id="btn-run">▶ 开始运行</button>
+        <button type="button" class="danger" id="btn-stop" disabled>■ 停止（STOP）</button>
+        <button type="button" id="btn-plan">📋 只生成 TODO（plan）</button>
+        <button type="button" id="btn-refresh">⟳ 刷新</button>
+      </div>
+    </form>
+    <details id="init-box">
+      <summary>初始化项目（生成 FinalGoal.md / TODO.md 模板）</summary>
+      <label>最终目标（可多行；留空则生成模板）</label>
+      <textarea id="f-goal" placeholder="例如：用 TypeScript 重写一个 CLI 工具并发布到 npm…"></textarea>
+      <div class="row"><button type="button" id="btn-init">生成</button></div>
+    </details>
+    <h3>运行输出（子进程实时日志）</h3>
+    <div class="console" id="console"></div>
+  </div>
+
+  <div class="panel">
+    <h2>轨迹时间线（最近一次 run）</h2>
+    <svg id="timeline" viewBox="0 0 940 240" preserveAspectRatio="xMidYMid meet"></svg>
+    <p class="hint" id="tl-hint">加载中…</p>
+    <h3>账号 / 换号</h3>
+    <div id="accounts"></div>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h2>TODO 队列</h2>
+    <ul id="queue"><li class="ev-dim">加载中…</li></ul>
+  </div>
+  <div class="panel">
+    <h2>最近事件 <button id="btn-report" style="float:right;padding:3px 10px;font-size:12px">查看结束报告</button></h2>
+    <table id="events"><tr><th>时间</th><th>事件</th><th>详情</th></tr><tr><td colspan="3" class="ev-dim">加载中…</td></tr></table>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h2>结束报告（report.json）</h2>
+    <pre id="report">（运行正常结束后自动生成；也可点上方按钮查看）</pre>
+  </div>
+  <div class="panel">
+    <h2>说明</h2>
+    <p class="hint">· 运行/规划通过子进程执行 <code>curloop run/plan</code>，日志实时回传，刷新页面不中断。<br>
+    · 停止 = 写入 <code>STOP</code> 文件，loop 优雅收尾（退出码 2），删除文件可取消。<br>
+    · live / limit-sim 需要管理员：请用管理员终端运行 <code>curloop web</code>。<br>
+    · 轨迹时间线由 events.jsonl 渲染：绿条=完成任务、红条=跳过/出错、黄条=进行中、菱形=换号成功、✗=换号失败。</p>
+  </div>
+</div>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const state = { since: 0, eventsKey: '', lastReportTs: 0 };
+
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function ts2h(ts){ const d=new Date(Number(ts)*1000); const p=(x)=>String(x).padStart(2,'0'); return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
+async function api(url, opts){
+  const r = await fetch(url, opts);
+  try { return await r.json(); } catch { return { ok:false, error:'bad response' }; }
+}
+
+async function refreshStatus(){
+  const d = await api('/api/status');
+  if(!d.ok) return;
+  $('h-project').textContent = d.project + '  ·  runstate: ' + d.stateDir;
+  $('h-mode').textContent = 'mode ' + (d.config.mode || '—');
+  $('h-admin').textContent = d.admin ? '管理员 ✓（live/limit-sim 可用）' : '非管理员（仅 dry-run/只读）';
+  $('h-admin').className = 'badge ' + (d.admin ? 'ok' : 'warn');
+  $('h-run').textContent = d.running ? '运行中（' + d.runKind + '）' : (d.exitCode != null ? '上次退出码 ' + d.exitCode : '未运行');
+  $('h-run').className = 'badge ' + (d.running ? 'warn' : 'ok');
+  $('btn-run').disabled = d.running;
+  $('btn-stop').disabled = !d.running;
+  $('btn-plan').disabled = d.running;
+
+  const s = d.status.stats;
+  const cards = [
+    ['换号', s.switches, d.status.stats.switch_ok + ' 成功 / ' + d.status.stats.switch_failed + ' 失败', 'accent'],
+    ['对话发送', s.sends, '当前 run', 'cyan'],
+    ['任务完成', s.tasks_done, '续接 ' + s.extend_ok, 'green'],
+    ['队列', d.status.queue.length, '项待执行', 'magenta'],
+    ['运行状态', d.status.running, '刷新 ' + d.status.now, 'yellow'],
+  ];
+  $('cards').innerHTML = cards.map(c =>
+    '<div class="card"><div class="k">' + c[0] + '</div><div class="v" style="color:var(--' + c[3] + ')">' + c[1] + ' <small>' + esc(c[2]) + '</small></div></div>'
+  ).join('');
+
+  const q = d.status.queue;
+  $('queue').innerHTML = q.length ? q.map(x => {
+    const mk = {done:'<span class="ev-ok">✓ done</span>', running:'<span class="ev-run">▶ running</span>', pending:'<span class="ev-dim">○ pending</span>', skipped:'<span class="ev-fail">✗ skipped</span>'};
+    return '<li>' + (mk[x.status] || esc(x.status)) + '  ' + esc(x.text) + (x.retries ? ' <span class="ev-wait">(重试 ' + x.retries + ')</span>' : '') + '</li>';
+  }).join('') : '<li class="ev-dim">（空）</li>';
+
+  $('accounts').innerHTML = (s.emails && s.emails.length)
+    ? s.emails.slice(-8).map(e => '<div class="acct">' + esc(e) + '</div>').join('')
+    : '<div class="ev-dim">暂无换号成功记录</div>';
+  return d;
+}
+
+async function refreshEvents(){
+  const d = await api('/api/events?n=200');
+  if(!d.ok) return;
+  const key = d.events.length ? d.events[0].ts + '|' + d.events.length : '0';
+  if(key === state.eventsKey) return;
+  state.eventsKey = key;
+  const rows = d.events.slice(0, 60).map(e => {
+    const ev = String(e.event || '');
+    let cls = 'ev-dim';
+    if(/fail|error|abort/.test(ev)) cls = 'ev-fail';
+    else if(/done|ok|sent/.test(ev)) cls = 'ev-ok';
+    else if(/start|switch|run/.test(ev)) cls = 'ev-run';
+    else if(/wait|poll|cooldown|extend|checkpoint/.test(ev)) cls = 'ev-wait';
+    const detail = [e.detail, e.reason, e.task].map(v => v ? String(v) : '').find(Boolean) || '';
+    return '<tr><td class="ev-dim">' + ts2h(e.ts) + '</td><td class="' + cls + '">' + esc(ev) + '</td><td>' + esc(String(detail).slice(0,80)) + '</td></tr>';
+  }).join('');
+  $('events').innerHTML = '<tr><th>时间</th><th>事件</th><th>详情</th></tr>' + rows;
+}
+
+async function refreshConsole(){
+  const d = await api('/api/console?since=' + state.since);
+  if(!d.ok) return;
+  if(d.lines && d.lines.length){
+    state.since = d.since;
+    const box = $('console');
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+    for(const line of d.lines){
+      const div = document.createElement('div');
+      div.textContent = line;
+      box.appendChild(div);
+    }
+    if(atBottom) box.scrollTop = box.scrollHeight;
+  }
+  // 运行结束（exitCode 出现）→ 自动拉一次报告
+  if(d.exitCode != null && !d.running && state.lastReportTs + 5000 < Date.now()){
+    state.lastReportTs = Date.now();
+    loadReport();
+  }
+}
+
+async function loadReport(){
+  const d = await api('/api/report');
+  $('report').textContent = d.report ? JSON.stringify(d.report, null, 2) : '（暂无 report.json）';
+}
+
+// ------------------------------------------------------------ timeline ----
+function buildTimeline(evs){
+  const svg = $('timeline');
+  const W = 940, H = 240, padL = 70, padR = 20, padT = 18, padB = 24;
+  const chrono = evs.slice().reverse(); // events 接口已倒序，这里还原为时间正序
+  let startTs = 0;
+  for(const e of chrono){ if(e.event === 'run_start'){ startTs = Number(e.ts); break; } }
+  let endTs = Date.now()/1000;
+  for(const e of chrono){
+    if(e.event === 'run_done' || e.event === 'run_abort' || e.event === 'interrupt'){ endTs = Number(e.ts); break; }
+  }
+  const t0 = startTs || (chrono.length ? Number(chrono[0].ts) : 0);
+  const dur = Math.max(30, endTs - t0);
+  const x = (ts) => padL + ((Number(ts) - t0) / dur) * (W - padL - padR);
+  let svgContent = '';
+  // 时间轴刻度
+  const grid = 4;
+  for(let i=0;i<=grid;i++){
+    const gx = padL + i*(W-padL-padR)/grid;
+    const gt = t0 + dur*i/grid;
+    svgContent += '<line x1="'+gx+'" y1="'+padT+'" x2="'+gx+'" y2="'+(H-padB)+'" stroke="#21262d" stroke-width="1"/>';
+    svgContent += '<text x="'+gx+'" y="'+(H-6)+'" fill="#8b949e" font-size="10" text-anchor="middle">'+ts2h(gt)+'</text>';
+  }
+  // 任务条：task_start → 下一个 task_done/task_skipped/task_error
+  const pending = [];
+  const bars = [];
+  const markers = [];
+  for(const e of chrono){
+    const ev = String(e.event || '');
+    if(ev === 'task_start'){
+      pending.push({ ts: Number(e.ts), text: String(e.task || '') });
+    } else if(ev === 'task_done' || ev === 'task_skipped' || ev === 'task_error'){
+      const st = pending.shift();
+      if(st){
+        bars.push({ start: st.ts, end: Number(e.ts) || endTs, text: st.text, kind: ev });
+      }
+    } else if(ev === 'switch_ok'){
+      markers.push({ ts: Number(e.ts), kind: 'ok', label: String(e.email || '') });
+    } else if(ev === 'switch_failed'){
+      markers.push({ ts: Number(e.ts), kind: 'fail', label: '' });
+    } else if(ev === 'sent'){
+      markers.push({ ts: Number(e.ts), kind: 'sent', label: '' });
+    } else if(ev === 'extend_result' || ev === 'checkpoint'){
+      markers.push({ ts: Number(e.ts), kind: 'ext', label: '' });
+    }
+  }
+  const rows = Math.min(6, Math.max(1, bars.length));
+  const rowH = (H - padT - padB - 14) / rows;
+  bars.forEach((b, i) => {
+    const y = padT + (i % rows) * rowH + 4;
+    const x1 = x(Math.max(b.start, t0)), x2 = x(Math.min(b.end, t0 + dur));
+    const color = b.kind === 'task_done' ? '#3fb950' : b.kind === 'task_skipped' ? '#f85149' : '#d29922';
+    svgContent += '<rect x="'+x1+'" y="'+y+'" width="'+Math.max(2, x2-x1)+'" height="'+Math.max(4, rowH-8)+'" rx="3" fill="'+color+'" opacity="0.85"/>';
+    if(x2 - x1 > 70){
+      svgContent += '<text x="'+(x1+6)+'" y="'+(y+rowH/2+3)+'" fill="#010409" font-size="10">'+esc(String(b.text).slice(0,26))+'</text>';
+    }
+  });
+  for(const m of markers){
+    const mx = x(Math.min(m.ts, t0 + dur));
+    const my = H - padB - 6;
+    if(m.kind === 'ok'){
+      svgContent += '<path d="M'+mx+' '+(my-5)+' L'+(mx+5)+' '+my+' L'+mx+' '+(my+5)+' L'+(mx-5)+' '+my+' Z" fill="#3fb950"/>';
+      if(m.label) svgContent += '<text x="'+(mx+8)+'" y="'+(my+3)+'" fill="#3fb950" font-size="9">'+esc(m.label.slice(0,22))+'</text>';
+    } else if(m.kind === 'fail'){
+      svgContent += '<text x="'+(mx-4)+'" y="'+(my+4)+'" fill="#f85149" font-size="12">✗</text>';
+    } else if(m.kind === 'ext'){
+      svgContent += '<circle cx="'+mx+'" cy="'+my+'" r="3" fill="#bc8cff"/>';
+    } else {
+      svgContent += '<circle cx="'+mx+'" cy="'+my+'" r="2.5" fill="#58a6ff"/>';
+    }
+  }
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+  svg.innerHTML = svgContent;
+  $('tl-hint').textContent = startTs
+    ? 'run 开始 ' + ts2h(t0) + ' → ' + (endTs > t0 ? ts2h(endTs) : '进行中') + ' · 任务 ' + bars.length + ' 条 · 换号 ' + markers.filter(m=>m.kind==='ok').length + ' 成功 / ' + markers.filter(m=>m.kind==='fail').length + ' 失败'
+    : '暂无 run 轨迹（先运行一次，或在 runstate 中有历史数据）';
+}
+
+async function refreshTimeline(){
+  const d = await api('/api/events?n=1000');
+  if(d.ok) buildTimeline(d.events);
+}
+
+// ------------------------------------------------------------ controls ----
+$('run-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const body = {
+    mode: $('f-mode').value,
+    project: $('f-project').value.trim() || undefined,
+    maxTasks: Number($('f-tasks').value) || 0,
+    maxSwitches: Number($('f-switches').value) || 0,
+  };
+  const r = await api('/api/run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if(!r.ok){
+    const box = $('console');
+    const div = document.createElement('div');
+    div.textContent = '[web] 启动失败: ' + (r.error || 'unknown');
+    div.style.color = 'var(--red)';
+    box.appendChild(div);
+  }
+  refreshStatus();
+});
+
+$('btn-stop').addEventListener('click', async () => {
+  const r = await api('/api/stop', { method:'POST' });
+  const box = $('console');
+  const div = document.createElement('div');
+  div.textContent = '[web] ' + (r.ok ? '已请求停止（STOP 文件: ' + r.stopFile + '）' : '停止失败: ' + (r.error || ''));
+  div.style.color = 'var(--yellow)';
+  box.appendChild(div);
+});
+
+$('btn-plan').addEventListener('click', async () => {
+  const r = await api('/api/plan', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ project: $('f-project').value.trim() || undefined }) });
+  if(!r.ok){
+    const box = $('console');
+    const div = document.createElement('div');
+    div.textContent = '[web] plan 启动失败: ' + (r.error || '');
+    div.style.color = 'var(--red)';
+    box.appendChild(div);
+  }
+});
+
+$('btn-init').addEventListener('click', async () => {
+  const r = await api('/api/init', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ goal: $('f-goal').value, project: $('f-project').value.trim() || undefined }) });
+  const box = $('console');
+  const div = document.createElement('div');
+  div.textContent = '[web] init: ' + JSON.stringify(r);
+  div.style.color = 'var(--green)';
+  box.appendChild(div);
+  refreshStatus();
+});
+
+$('btn-refresh').addEventListener('click', () => { refreshStatus(); refreshEvents(); refreshTimeline(); loadReport(); });
+$('btn-report').addEventListener('click', loadReport);
+
+// ------------------------------------------------------------ loop ----
+async function tick(){
+  await refreshStatus();
+  await refreshEvents();
+  await refreshConsole();
+}
+setInterval(tick, 2000);
+setInterval(refreshTimeline, 5000);
+loadReport();
+</script>
+</body>
+</html>

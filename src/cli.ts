@@ -30,6 +30,8 @@ export interface CliArgs {
   finalGoal?: boolean;
   maxTasks?: number;
   count?: number;
+  port?: number;
+  'no-open'?: boolean;
   _: string[];
   [key: string]: unknown;
 }
@@ -299,6 +301,8 @@ const INIT_GOAL = `# 最终目标（FinalGoal）
 - [ ] 交付物 1
 - [ ] 交付物 2
 `;
+
+export { INIT_GOAL, INIT_TODO };
 
 export function cmdInit(args: CliArgs): number {
   const project = path.resolve(args.project || process.cwd());
@@ -635,6 +639,8 @@ export async function main(argv: string[]): Promise<number> {
     yes: Boolean(args.yes),
     finalGoal: Boolean(args['final-goal']),
     maxTasks: args['max-tasks'] !== undefined ? Math.max(0, Math.trunc(Number(args['max-tasks']))) : undefined,
+    port: args.port !== undefined ? Number(args.port) : undefined,
+    'no-open': Boolean(args['no-open']),
   };
   switch (cmd) {
     case 'run':
@@ -649,11 +655,14 @@ export async function main(argv: string[]): Promise<number> {
       return cmdWatch(cli);
     case 'init':
       return cmdInit(cli);
+    case 'web':
+      return cmdWeb(cli);
     default:
       console.log(
         `${ui.head('示例')}\n` +
           '  curloop run                       在当前目录无人值守运行\n' +
           '  curloop run --no-plan             直接用已有 TODO.md（跳过生成规划）\n' +
+          '  curloop web [--port 3080]         打开 Web 界面（可视化 + 远程控制，仿 dsh web）\n' +
           '  curloop status                    查看状态与统计\n' +
           '  curloop stats                     统计摘要\n' +
           '  curloop watch                     实时监控（每 3 秒刷新）\n' +
@@ -662,4 +671,14 @@ export async function main(argv: string[]): Promise<number> {
       );
       return 0;
   }
+}
+
+export async function cmdWeb(args: CliArgs): Promise<number> {
+  const { webMain } = await import('./web');
+  return webMain({
+    port: Number(args.port ?? 3080),
+    project: (args.project as string | undefined) || process.cwd(),
+    mode: args.mode as string | undefined,
+    'no-open': Boolean(args['no-open']),
+  });
 }

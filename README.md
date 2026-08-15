@@ -19,6 +19,7 @@
   - `todoQueue.ts` / `runState.ts` / `observer.ts` / `ui.ts` / `fileLock.ts` — TODO 队列、断点续跑（snapshot + events.jsonl）、状态统计、ANSI 渲染、跨进程同步锁
   - `loop.ts` — 无人值守状态机（`--check-config` / `--dry-run` / `--detect-only` / `--mode live|limit-sim`）
   - `cli.ts` — 交互 CLI + REPL（`run` / `plan` / `status` / `stats` / `watch` / `init` / `tasks` / `log` / `stop` / `report`）
+  - `web.ts` + `web/index.html` — Web 界面（仿 dsh web）：本地 HTTP 服务器、统计/轨迹可视化、远程运行控制
 - `bin/curloop.js` — Node 入口（flag 参数 → loop 直通；子命令/空 → 交互 CLI）
 
 仓库内 `unattended/*.py` 为旧 Python 实现，仅作参考/回归对比，不再维护；入口一律走 `dist/`。
@@ -47,6 +48,22 @@ curloop run --mode live --max-tasks 10 --max-switches 3   # 运行预算：最�
 - **交互 CLI**：无参数进入 REPL，或子命令 `run` / `plan` / `status` / `stats` / `watch` / `init` / `tasks` / `log` / `stop` / `report`
 
 REPL 斜杠命令：`/status` `/stats` `/tasks` `/log [N]` `/run` `/plan` `/watch` `/init` `/stop` `/report` `/project <路径>` `/exit`。
+
+## Web 界面（仿 dsh web）
+
+```bash
+curloop web                     # 启动 Web UI 并自动打开浏览器（默认端口 3080，被占自动顺延）
+curloop web --port 8080         # 指定端口
+curloop web --no-open           # 只启动服务，不打开浏览器
+```
+
+在浏览器里完成全部 CLI 操作（**CLI 搬到 Web**）：
+
+- **可视化**：统计卡片（换号/对话/完成/续接）、**SVG 轨迹时间线**（任务条：绿=完成、红=跳过、黄=进行中；菱形=换号成功、✗=失败）、TODO 队列、账号列表、最近事件表、结束报告
+- **控制**：一键运行（模式/项目/最大任务/最大换号）、停止（写 STOP 文件优雅收尾）、只生成 TODO（plan）、初始化项目（输入最终目标生成 FinalGoal.md + TODO.md）
+- **实时**：运行子进程日志流式回传（刷新页面不中断）；页面每 2 秒自动刷新状态/事件
+
+说明：`live` / `limit-sim` 需要管理员——用管理员终端启动 `curloop web`；服务只绑定 `127.0.0.1`。
 
 ## 长对话 / 可控 / 最终（Harness 设计）
 
