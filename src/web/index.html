@@ -205,6 +205,23 @@ details.panel .panel-b{padding-top:0}
 .footer a{color:var(--muted-fg);text-decoration:none}
 .footer a:hover{color:var(--blue)}
 
+/* ============ 目录浏览弹窗（目标项目选择） ============ */
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(3px);
+  display:none;align-items:center;justify-content:center;z-index:100}
+.modal-overlay.show{display:flex}
+.modal-box{background:var(--card);border:1px solid var(--border);border-radius:14px;width:min(660px,92vw);
+  max-height:80vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md)}
+.modal-h{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;
+  border-bottom:1px solid var(--border);font-weight:600;font-size:14px}
+.modal-h .x{border:none;background:none;color:var(--muted-fg);font-size:16px;cursor:pointer;padding:2px 6px;border-radius:6px}
+.modal-h .x:hover{background:var(--muted)}
+.modal-path{padding:8px 16px;font:12px var(--mono);color:var(--muted-fg);border-bottom:1px solid var(--border);word-break:break-all}
+.modal-list{overflow-y:auto;padding:6px;flex:1;min-height:220px}
+.dir-item{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:8px;font-size:13px;cursor:pointer}
+.dir-item:hover{background:var(--muted)}
+.dir-item svg{width:15px;height:15px;color:var(--amber);flex:none}
+.modal-foot{display:flex;gap:8px;justify-content:flex-end;padding:10px 14px;border-top:1px solid var(--border)}
+
 /* mobile：侧边栏收成顶部导航 */
 @media(max-width:960px){
   .app{flex-direction:column}
@@ -282,13 +299,37 @@ details.panel .panel-b{padding-top:0}
             运行</span></div>
           <div class="panel-b">
             <form id="run-form">
-              <div class="row g-2 mb-3">
-                <div class="col-md-8"><label class="form-label">目标项目</label>
-                  <input class="form-control form-control-sm" id="f-project" placeholder="默认：当前项目"></div>
-                <div class="col-md-4 d-flex align-items-end">
-                  <span class="text-secondary" style="font-size:11.5px">模式：无人值守（live）—— 自动执行队列 / 换号 / 续接，直到目标完成；上限与轮转等参数在下方面板设置</span>
+              <div class="row g-2 mb-2">
+                <div class="col-md-9">
+                  <label class="form-label">目标项目（Cursor 将分析的项目目录，可选择或直接输入路径）</label>
+                  <div class="d-flex gap-2">
+                    <input class="form-control form-control-sm" id="f-project" placeholder="例如 D:\work\my-project（默认：当前项目）">
+                    <button type="button" class="btn btn-outline" id="btn-browse" style="flex:none">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"/></svg>
+                      浏览</button>
+                  </div>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                  <span style="font-size:11.5px;color:var(--muted-fg)">模式：无人值守（live）—— 自动执行队列 / 换号 / 续接，直到目标完成</span>
                 </div>
               </div>
+              <!-- 项目状态：自动检测 FinalGoal / TODO / git -->
+              <div class="d-flex align-items-center gap-2 flex-wrap mb-2" id="project-status"></div>
+              <details class="panel mb-2" id="init-box">
+                <summary>初始化项目（生成 FinalGoal.md / TODO.md）<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                <div class="panel-b">
+                  <label class="form-label">最终目标（可多行；留空生成模板）</label>
+                  <textarea class="form-control mb-2" id="f-goal" rows="3" placeholder="例如：用 TypeScript 完成一个 CLI 工具并发布到 npm…"></textarea>
+                  <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <label class="d-flex align-items-center gap-1 mb-0" style="font-size:12px;color:var(--muted-fg)">
+                      <input type="checkbox" id="f-force" style="width:auto"> 覆盖已有模板</label>
+                    <button type="button" class="btn btn-outline btn-sm" id="btn-init">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                      生成</button>
+                  </div>
+                  <div class="param-hint">新项目（无 FinalGoal/TODO）必须初始化；已有项目可直接生成缺失文件，勾选「覆盖」可重建模板</div>
+                </div>
+              </details>
               <div class="d-flex gap-2 flex-wrap">
                 <button type="submit" class="btn btn-primary" id="btn-run">
                   <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
@@ -332,7 +373,7 @@ details.panel .panel-b{padding-top:0}
         <div class="panel mb-3">
           <div class="panel-h"><span class="t">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            运行参数 · 保存到配置文件（%APPDATA%\curloop\config.json）</span></div>
+            运行参数</span></div>
           <div class="panel-b">
             <div class="row g-2 mb-1">
               <div class="col-md-4">
@@ -376,12 +417,11 @@ details.panel .panel-b{padding-top:0}
                   <option value="true">开</option>
                 </select>
                 <div class="param-hint">开：队列空且自动扩展无新任务时，让 Cursor 对照 FinalGoal 硬门槛做最后验收，有遗漏补任务，否则判定目标完成</div></div>
-              <div class="col-md-4 d-flex align-items-end">
+              <div class="col-md-4">
                 <button type="button" class="btn btn-outline" id="btn-save-config">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
                   保存参数</button>
-                <span class="text-secondary ms-2" style="font-size:11.5px">下次运行生效 · 运行中的任务不受影响</span>
-              </div>
+                <div class="param-hint">保存后下次运行生效；运行中的任务不受影响</div></div>
             </div>
           </div>
         </div>
@@ -539,6 +579,22 @@ details.panel .panel-b{padding-top:0}
 <script src="vendor/tabler/tabler.min.js"></script>
 <script src="vendor/echarts/echarts.min.js"></script>
 <script src="vendor/marked/marked.min.js"></script>
+
+<!-- 目录浏览弹窗 -->
+<div class="modal-overlay" id="browse-modal">
+  <div class="modal-box">
+    <div class="modal-h">选择项目目录
+      <button type="button" class="x" id="browse-close" aria-label="关闭">✕</button>
+    </div>
+    <div class="modal-path" id="browse-path">—</div>
+    <div class="modal-list" id="browse-list"></div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-ghost btn-sm" id="browse-up">上一级</button>
+      <button type="button" class="btn btn-primary btn-sm" id="browse-select">选择此目录</button>
+    </div>
+  </div>
+</div>
+
 <script>
 'use strict';
 const $ = (id) => document.getElementById(id);
@@ -871,6 +927,74 @@ async function refreshCharts(){
   renderActivity(d.events);
 }
 
+// ============ 目标项目：选择 / 检测 / 初始化 ============
+let browsePath = '', browseParent = null;
+
+async function checkProject(){
+  const dir = $('f-project').value.trim();
+  if(!dir){ $('project-status').innerHTML = ''; return; }
+  const d = await api('/api/project?dir=' + encodeURIComponent(dir));
+  if(!d.ok) return;
+  const b = (txt, cls) => '<span class="badge ' + cls + '">' + txt + '</span>';
+  let chips = '';
+  if(!d.exists) chips += b('目录不存在', 'text-bg-danger');
+  chips += d.hasGoal ? b('FinalGoal ✓', 'text-bg-success') : b('无 FinalGoal', 'text-bg-danger');
+  chips += d.hasTodo ? b('TODO ✓（待办 ' + d.todoPending + '）', 'text-bg-success') : b('无 TODO', 'text-bg-danger');
+  if(d.isGit) chips += b('git ✓', 'text-bg-secondary');
+  if(d.hasStateFile) chips += b('记忆 ✓', 'text-bg-info');
+  if(!d.hasGoal && !d.hasTodo){
+    chips += ' ' + b('新项目 —— 请先初始化', 'text-bg-warning');
+    $('init-box').setAttribute('open', '');
+  }
+  $('project-status').innerHTML = chips;
+}
+
+let projTimer = null;
+$('f-project').addEventListener('input', () => {
+  clearTimeout(projTimer);
+  projTimer = setTimeout(checkProject, 500);
+});
+window.addEventListener('load', () => {
+  // 初始项目回填并检测
+  const st = api('/api/status');
+  st.then((d) => {
+    if(d.ok && d.project && !$('f-project').value){
+      $('f-project').value = d.project;
+      checkProject();
+    }
+  });
+});
+
+// 目录浏览
+function openBrowse(){ browsePath = ''; browseParent = null; loadDirs(); $('browse-modal').classList.add('show'); }
+async function loadDirs(){
+  const d = await api('/api/dirs?path=' + encodeURIComponent(browsePath));
+  if(!d.ok) return;
+  browsePath = d.path || '';
+  browseParent = d.parent;
+  $('browse-path').textContent = browsePath || '（选择盘符）';
+  $('browse-list').innerHTML = d.dirs.length
+    ? d.dirs.map((dir) => {
+        const name = dir.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || dir;
+        return '<div class="dir-item" data-dir="' + esc(dir) + '">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"/></svg>' +
+          esc(name) + '</div>';
+      }).join('')
+    : '<div class="hint" style="padding:10px">（无子目录）</div>';
+  $('browse-list').querySelectorAll('.dir-item').forEach((el) => {
+    el.addEventListener('click', () => { browsePath = el.dataset.dir; loadDirs(); });
+  });
+  $('browse-up').disabled = !browseParent;
+}
+$('btn-browse').addEventListener('click', openBrowse);
+$('browse-close').addEventListener('click', () => $('browse-modal').classList.remove('show'));
+$('browse-up').addEventListener('click', () => { if(browseParent){ browsePath = browseParent; loadDirs(); } });
+$('browse-select').addEventListener('click', () => {
+  $('browse-modal').classList.remove('show');
+  $('f-project').value = browsePath;
+  checkProject();
+});
+
 // ============ controls ============
 $('run-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -878,6 +1002,16 @@ $('run-form').addEventListener('submit', async (e) => {
   const body = {
     project: $('f-project').value.trim() || undefined,
   };
+  // 流程守卫：新项目（无 FinalGoal/TODO）先初始化，避免直接跑空
+  const pc = await api('/api/project?dir=' + encodeURIComponent(body.project || ''));
+  if(pc.ok && !pc.hasGoal && !pc.hasTodo){
+    const div = document.createElement('div');
+    div.textContent = '[web] 该项目还没有 FinalGoal / TODO —— 请先在「初始化项目」中生成（新项目流程）';
+    div.style.color = L.yellow;
+    $('console').appendChild(div);
+    $('init-box').setAttribute('open', '');
+    return;
+  }
   const r = await api('/api/run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
   if(!r.ok){
     const div = document.createElement('div');
@@ -907,11 +1041,12 @@ $('btn-plan').addEventListener('click', async () => {
 });
 
 $('btn-init').addEventListener('click', async () => {
-  const r = await api('/api/init', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ goal: $('f-goal').value, project: $('f-project').value.trim() || undefined }) });
+  const r = await api('/api/init', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ goal: $('f-goal').value, project: $('f-project').value.trim() || undefined, force: $('f-force').checked }) });
   const div = document.createElement('div');
   div.textContent = '[web] init: ' + JSON.stringify(r);
   div.style.color = L.green;
   $('console').appendChild(div);
+  checkProject();
   refreshStatus();
   loadGoal();
 });
@@ -936,7 +1071,7 @@ $('btn-refresh').addEventListener('click', () => { refreshStatus(); refreshEvent
 $('btn-report').addEventListener('click', loadReport);
 $('btn-timeline-refresh').addEventListener('click', () => refreshCharts());
 
-// 保存运行参数（持久化到 %APPDATA%\curloop\config.json 并热重载）
+// 保存运行参数（持久化到用户配置文件并热重载）
 $('btn-save-config').addEventListener('click', async () => {
   const body = {
     maxTasks: Number($('p-tasks').value) || 0,

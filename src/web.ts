@@ -7,6 +7,7 @@ import { buildStatus, loadEvents, loadSnapshot } from './observer';
 import { isAdmin, stopFilePath } from './loop';
 import { INIT_GOAL, INIT_TODO } from './cli';
 import * as cursor from './cursor';
+import { parseAll } from './todoQueue';
 
 /**
  * curloop Web 界面（仿 dsh web）：`curloop web` 启动本地 HTTP 服务器并自动打开浏览器。
@@ -297,6 +298,63 @@ function router(): http.RequestListener {
         sendJson(res, 200, { ok: true, snapshot: loadSnapshot(cfg.projectDir, cfg.stateDir) });
         return;
       }
+      if (req.method === 'GET' && url === '/api/dirs') {
+        // 服务端目录浏览（目标项目选择器）：空 path 返回盘符，否则列出子目录
+        const q = new URL(req.url || '', 'http://x');
+        const raw = q.searchParams.get('path') || '';
+        let dirs: string[] = [];
+        let parent: string | null = null;
+        let resolved: string | null = null;
+        try {
+          if (!raw) {
+            for (let i = 65; i <= 90; i++) {
+              const d = String.fromCharCode(i) + ':\\';
+              try {
+                if (fs.existsSync(d)) dirs.push(d);
+              } catch {
+                /* ignore */
+              }
+            }
+          } else {
+            resolved = path.resolve(raw);
+            parent = path.dirname(resolved);
+            if (parent === resolved) parent = null;
+            dirs = fs
+              .readdirSync(resolved, { withFileTypes: true })
+              .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+              .map((e) => path.join(resolved as string, e.name))
+              .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+          }
+        } catch {
+          /* 路径不可读：返回空 */
+        }
+        sendJson(res, 200, { ok: true, path: resolved, parent, dirs: dirs.slice(0, 500) });
+        return;
+      }
+      if (req.method === 'GET' && url === '/api/project') {
+        // 项目检测：FinalGoal / TODO（含待办数）/ git / 记忆文件
+        const q = new URL(req.url || '', 'http://x');
+        const dir = q.searchParams.get('dir') ? path.resolve(String(q.searchParams.get('dir'))) : cfg.projectDir;
+        const goalP = path.join(dir, cfg.finalGoalFile);
+        const todoP = path.join(dir, cfg.todoPath);
+        let todoPending = 0;
+        try {
+          if (fs.existsSync(todoP)) todoPending = parseAll(todoP).filter((t) => !t.done).length;
+        } catch {
+          /* ignore */
+        }
+        sendJson(res, 200, {
+          ok: true,
+          project: dir,
+          exists: fs.existsSync(dir),
+          hasGoal: fs.existsSync(goalP),
+          hasTodo: fs.existsSync(todoP),
+          todoPending,
+          isGit: fs.existsSync(path.join(dir, '.git')),
+          hasStateFile: fs.existsSync(path.join(dir, 'HARNESS_STATE.md')),
+        });
+        return;
+      }
       if (req.method === 'GET' && url === '/api/goal') {
         // FinalGoal.md 内容（无固定格式，前端用 Markdown 渲染）
         const p = cfg.finalGoalFilePath;
@@ -422,10 +480,12 @@ function router(): http.RequestListener {
       if (req.method === 'POST' && url === '/api/init') {
         const body = await readJsonBody(req);
         const project = body['project'] ? path.resolve(String(body['project'])) : cfg.projectDir;
+        const force = Boolean(body['force']);
         const created: string[] = [];
         const goal = String(body['goal'] ?? '').trim();
         const goalP = path.join(project, 'FinalGoal.md');
-        if (goal && !fs.existsSync(goalP)) {
+        fs.mkdirSync(project, { recursive: true });
+        if (goal && (!fs.existsSync(goalP) || force)) {
           const content =
             '# 最终目标（FinalGoal）\n\n' +
             '> 由 curloop web 初始化生成；本文件是仓库的最高级规划。\n\n' +
@@ -435,14 +495,12 @@ function router(): http.RequestListener {
             '- [ ] （待补充，后续规划会对照本目标生成 TODO）\n';
           fs.writeFileSync(goalP, content, 'utf-8');
           created.push(goalP);
-        } else if (!goal) {
-          if (!fs.existsSync(goalP)) {
-            fs.writeFileSync(goalP, INIT_GOAL, 'utf-8');
-            created.push(goalP);
-          }
+        } else if (!goal && (!fs.existsSync(goalP) || force)) {
+          fs.writeFileSync(goalP, INIT_GOAL, 'utf-8');
+          created.push(goalP);
         }
         const todoP = path.join(project, 'TODO.md');
-        if (!fs.existsSync(todoP)) {
+        if (!fs.existsSync(todoP) || force) {
           fs.writeFileSync(todoP, INIT_TODO, 'utf-8');
           created.push(todoP);
         }
