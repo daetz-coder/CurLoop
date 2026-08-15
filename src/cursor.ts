@@ -214,6 +214,25 @@ export async function evaluateJs(port: number, js: string): Promise<Record<strin
   }
 }
 
+// ------------------------------------------------------------ new chat ----
+/** 点击「New Chat / 新对话」：线程轮转（thread.rotate_every_tasks）用。 */
+export const NEW_CHAT_JS = String.raw`
+(() => {
+  const textOf = (el) => ((el.innerText || el.textContent || el.getAttribute?.('aria-label') || el.getAttribute?.('title') || '') + '').trim();
+  const re = /(new chat|new agent|start new|新对话|新建聊天|新聊天|新建对话)/i;
+  const nodes = [...document.querySelectorAll('button, [role="button"], a, [role="tab"], [aria-label]')];
+  const el = nodes.find((n) => re.test(textOf(n)))
+    || nodes.find((n) => /new chat/i.test(n.getAttribute('aria-label') || ''));
+  if (!el) return { ok: false, reason: 'new_chat_not_found' };
+  el.click();
+  return { ok: true, text: textOf(el).slice(0, 40) };
+})()
+`;
+
+export async function clickNewChat(port: number): Promise<Record<string, unknown>> {
+  return evaluateJs(port, NEW_CHAT_JS);
+}
+
 export const INJECT_LIMIT_NODE_JS = String.raw`
 (() => {
   const d = document.createElement('div');

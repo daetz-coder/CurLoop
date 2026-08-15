@@ -102,6 +102,12 @@ summary{cursor:pointer;color:var(--accent);font-size:13px}
       <textarea id="f-goal" placeholder="例如：用 TypeScript 重写一个 CLI 工具并发布到 npm…"></textarea>
       <div class="row"><button type="button" id="btn-init">生成</button></div>
     </details>
+    <details id="ask-box">
+      <summary>手动向 Cursor 发送消息（人在回路 / 调试）</summary>
+      <label>消息内容（发送到 Cursor 当前会话；需要 Cursor 带 CDP 运行）</label>
+      <textarea id="f-ask" placeholder="例如：现在项目进度如何？先别改代码，只回答。"></textarea>
+      <div class="row"><button type="button" id="btn-ask">发送</button></div>
+    </details>
     <h3>运行输出（子进程实时日志）</h3>
     <div class="console" id="console"></div>
   </div>
@@ -136,6 +142,8 @@ summary{cursor:pointer;color:var(--accent);font-size:13px}
     <p class="hint">· 运行/规划通过子进程执行 <code>curloop run/plan</code>，日志实时回传，刷新页面不中断。<br>
     · 停止 = 写入 <code>STOP</code> 文件，loop 优雅收尾（退出码 2），删除文件可取消。<br>
     · live / limit-sim 需要管理员：请用管理员终端运行 <code>curloop web</code>。<br>
+    · 长对话：配置 <code>thread.rotate_every_tasks</code> 可每 N 个任务自动点 New Chat + 续接
+      （HARNESS_STATE.md 记忆 + git + 剩余 TODO）；<code>prompt.checkpoint_every_tasks</code> 让 Agent 定期写进度小结。<br>
     · 轨迹时间线由 events.jsonl 渲染：绿条=完成任务、红条=跳过/出错、黄条=进行中、菱形=换号成功、✗=换号失败。</p>
   </div>
 </div>
@@ -365,6 +373,22 @@ $('btn-init').addEventListener('click', async () => {
   div.style.color = 'var(--green)';
   box.appendChild(div);
   refreshStatus();
+});
+
+$('btn-ask').addEventListener('click', async () => {
+  const prompt = $('f-ask').value.trim();
+  if(!prompt) return;
+  const box = $('console');
+  const div = document.createElement('div');
+  div.textContent = '[web] 发送给 Cursor: ' + prompt.slice(0, 120);
+  div.style.color = 'var(--cyan)';
+  box.appendChild(div);
+  const r = await api('/api/ask', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt, project: $('f-project').value.trim() || undefined }) });
+  const d2 = document.createElement('div');
+  d2.textContent = '[web] ask 结果: ' + (r.ok ? '已发送（去 Cursor 查看回复）' : (r.error || JSON.stringify(r.detail || '')));
+  d2.style.color = r.ok ? 'var(--green)' : 'var(--red)';
+  box.appendChild(d2);
+  $('f-ask').value = '';
 });
 
 $('btn-refresh').addEventListener('click', () => { refreshStatus(); refreshEvents(); refreshTimeline(); loadReport(); });

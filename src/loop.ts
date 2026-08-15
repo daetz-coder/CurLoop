@@ -14,6 +14,8 @@ import {
   buildTaskPrompt,
   CHECKPOINT_PROMPT,
   FINAL_VERIFY_PROMPT,
+  buildRestorePrompt,
+  writeHarnessState,
 } from './prompts';
 
 /** 无人值守 Cursor 编码循环 — state machine + CLI。
@@ -725,6 +727,38 @@ function writeFinalReport(cfg: Config, state: RunState, kind: string): void {
   }
 }
 
+/** 线程轮转（真正的长对话压缩）：写 HARNESS_STATE.md → 点 New Chat 开新线程 →
+ *  发续接提示词（记忆 + git + 剩余 TODO）→ 等 Agent 处理完再返回，让下一条任务提示词落在新线程。
+ *  失败不致命：下一次任务仍走原线程（buildTaskPrompt 自带续接上下文）。 */
+async function rotateThread(cfg: Config, state: RunState, n: number): Promise<boolean> {
+  try {
+    state.log('thread_rotate', { n });
+    writeHarnessState(cfg, state);
+    const nc = await cursor.clickNewChat(cfg.cursor.port);
+    state.log('thread_rotate_new_chat', { ok: Boolean(nc['ok']), reason: nc['reason'] ?? null });
+    if (!nc['ok']) return false;
+    await sleep(2);
+    const queueSummary = state.queue
+      .filter((t) => t.status === 'pending' || t.status === 'running')
+      .map((t) => `- [ ] ${t.text}`)
+      .join('\n');
+    const restore = buildRestorePrompt(cfg, queueSummary);
+    const sr = await cursor.sendPrompt(cfg, restore, true);
+    if (!sr['ok']) {
+      state.log('thread_rotate_send_failed', { reason: String((sr['type'] as Record<string, unknown>)?.['reason'] ?? sr['error'] ?? '') });
+      return false;
+    }
+    state.log('thread_rotate_sent');
+    // 等 Agent 处理完续接提示词（有界等待），避免下一条任务提示词排队
+    await ensureIdleBeforeSend(cfg, state, 600.0);
+    return true;
+  } catch (e) {
+    if (e instanceof HarnessInterrupt || e instanceof StopRequested) throw e;
+    state.log('thread_rotate_failed', { error: String(e) });
+    return false;
+  }
+}
+
 export async function run(cfg: Config): Promise<number> {
   cursor.init(cfg);
   let state = RunState.load(cfg.snapshotFile, cfg.eventLogFile, cfg.todoFile);
@@ -790,6 +824,7 @@ export async function run(cfg: Config): Promise<number> {
           /* ignore */
         }
         state.log('run_done', { pending: 0, tasks_done: tasksDoneInRun });
+        writeHarnessState(cfg, state); // 退出前固化记忆，供下次恢复/新会话续接
         writeFinalReport(cfg, state, 'run_done');
         console.log(
           JSON.stringify({
@@ -804,6 +839,7 @@ export async function run(cfg: Config): Promise<number> {
       // max-tasks budget：达到上限即收尾（队列留待下次 run）
       if (cfg.control.maxTasks > 0 && tasksDoneInRun >= cfg.control.maxTasks) {
         state.log('run_done', { pending: state.queue.length, reason: 'max_tasks', max_tasks: cfg.control.maxTasks });
+        writeHarnessState(cfg, state);
         writeFinalReport(cfg, state, 'max_tasks');
         console.log(
           JSON.stringify({
@@ -840,6 +876,10 @@ export async function run(cfg: Config): Promise<number> {
             state.log('checkpoint_failed', { error: String(e) });
           }
         }
+        // 线程轮转（真正的长对话压缩，可选）：每 N 个任务点 New Chat + 续接提示词
+        if (cfg.thread.rotateEveryTasks > 0 && tasksDoneInRun % cfg.thread.rotateEveryTasks === 0) {
+          await rotateThread(cfg, state, tasksDoneInRun);
+        }
         // 任务完成后重新加载 TODO.md：吸收 Agent 追加的新任务
         const fresh = reloadQueue(cfg, state, 'task_done');
         if (fresh !== null) {
@@ -853,6 +893,7 @@ export async function run(cfg: Config): Promise<number> {
       if (outcome === 'abort') {
         state.log('run_abort');
         state.save();
+        writeHarnessState(cfg, state);
         writeFinalReport(cfg, state, 'run_abort');
         return 2; // distinct from crash(1): watchdog must NOT restart on abort
       }
@@ -863,12 +904,14 @@ export async function run(cfg: Config): Promise<number> {
       state.log('run_abort', { reason: 'stop_file' });
       state.save();
       console.log('[stop] 检测到 STOP 文件，已优雅中止（退出码 2，watchdog 不重启）。删除 STOP 后可继续。');
+      writeHarnessState(cfg, state);
       writeFinalReport(cfg, state, 'stop_file');
       return 2;
     }
     if (e instanceof HarnessInterrupt) {
       state.log('interrupt');
       state.save();
+      writeHarnessState(cfg, state); // Ctrl-C 也固化记忆
       console.log('\n[interrupt] 状态已保存，可再次运行续跑');
       return 130;
     }
@@ -876,6 +919,7 @@ export async function run(cfg: Config): Promise<number> {
     try {
       state.log('run_error', { error: String(e) });
       state.save();
+      writeHarnessState(cfg, state);
     } catch {
       /* ignore */
     }

@@ -73,7 +73,12 @@
   "prompt": {
     "task_context": true,
     "checkpoint_every_tasks": 0,
-    "final_verify": false
+    "final_verify": false,
+    "goal_in_task": false,
+    "task_prompt_file": ""
+  },
+  "thread": {
+    "rotate_every_tasks": 0
   },
   "control": {
     "max_tasks": 0,

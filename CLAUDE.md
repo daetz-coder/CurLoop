@@ -90,10 +90,15 @@ python verify_conversation_verdict.py                             # re-classify 
   run_abort、写 report、退出码 2（watchdog 不重启）。任务级 catch 必须 rethrow
   `HarnessInterrupt`/`StopRequested`，绝不能当 task_error 吞掉。
 - **运行预算与收尾**：`--max-tasks N` / `--max-switches N`（CLI 覆盖 `control.max_tasks` /
-  `retry.max_total_account_switches_per_run`）；任务提示词用 `buildTaskPrompt`（git 上下文 + 工作纪律），
-  不要再调 `TodoTask.prompt`。run_done / max_tasks / stop / abort 都写 `runstate/<key>/report.json`
-  （`writeFinalReport`）；可选三层收尾 `prompt.final_verify`（tryFinalVerify，在 level-1 extend 与
-  level-2 goal_extend 之后），长对话检查点 `prompt.checkpoint_every_tasks`（每 N 任务让 Agent 写 HARNESS_STATE.md）。
+  `retry.max_total_account_switches_per_run`）；任务提示词用 `buildTaskPrompt`（git 上下文 + 工作纪律，
+  支持 `prompt.task_prompt_file` 文件覆盖，占位符 `{project}/{task}/{retries}`），不要再调 `TodoTask.prompt`。
+  run_done / max_tasks / stop / abort 都写 `runstate/<key>/report.json`（`writeFinalReport`）；可选三层收尾
+  `prompt.final_verify`（tryFinalVerify，在 level-1 extend 与 level-2 goal_extend 之后），长对话检查点
+  `prompt.checkpoint_every_tasks`（每 N 任务让 Agent 写 HARNESS_STATE.md）。
+- **记忆固化（writeHarnessState）**：`prompts.ts` 里 harness 自动生成 `HARNESS_STATE.md`（队列+账号+最近事件），
+  **run_done / max_tasks / interrupt / stop / abort / 运行级错误都必须调用**（与 writeFinalReport 并列）；
+  线程轮转 `thread.rotate_every_tasks`（0=关）每 N 任务走 `rotateThread`：写记忆 → `cursor.clickNewChat` →
+  发 `buildRestorePrompt`（记忆+git+剩余 TODO）→ `ensureIdleBeforeSend` 等 Agent 处理完，失败不致命（回落单线程）。
 - 配置外置不变：`config.default.json`（干净默认）+ `%APPDATA%\curloop\config.json`（用户覆盖）+ `--config FILE`；
   runstate 默认 `%APPDATA%\curloop\runstate`，按 (项目绝对路径, git 分支) 隔离（`projectStateKey`）。
   **`cfg.projectDir` 可在 load 后被 CLI 覆盖，`todoFile`/`projectStateDir` 等必须是动态 getter**（见 config.ts fromDict），

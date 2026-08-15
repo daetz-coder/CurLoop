@@ -247,6 +247,10 @@ export interface PromptConfig {
   checkpointEveryTasks: number;
   /** 队列空且两层扩展都无新任务时，再让 Agent 对照 FinalGoal 做一次最终验收 */
   finalVerify: boolean;
+  /** 任务提示词附带 FinalGoal 前段（目标提示，默认关——FinalGoal 可能很长） */
+  goalInTask: boolean;
+  /** 自定义任务提示词文件（路径可为相对 <projectDir>；存在则完全覆盖内置任务提示词） */
+  taskPromptFile: string;
 }
 
 export function promptFromDict(d: Record<string, unknown>): PromptConfig {
@@ -254,6 +258,20 @@ export function promptFromDict(d: Record<string, unknown>): PromptConfig {
     taskContext: Boolean(d['task_context'] ?? true),
     checkpointEveryTasks: Math.trunc(num(d, 'checkpoint_every_tasks', 0)),
     finalVerify: Boolean(d['final_verify'] ?? false),
+    goalInTask: Boolean(d['goal_in_task'] ?? false),
+    taskPromptFile: strPath(d, 'task_prompt_file') || '',
+  };
+}
+
+export interface ThreadConfig {
+  /** 上下文轮转：每完成 N 个任务点「New Chat」开新线程，先写 HARNESS_STATE.md
+   *  再发续接提示词恢复上下文（真正的长对话压缩；0 = 关闭，保持单线程） */
+  rotateEveryTasks: number;
+}
+
+export function threadFromDict(d: Record<string, unknown>): ThreadConfig {
+  return {
+    rotateEveryTasks: Math.trunc(num(d, 'rotate_every_tasks', 0)),
   };
 }
 
@@ -285,6 +303,7 @@ export interface Config {
   retry: RetryConfig;
   ui: UiConfig;
   prompt: PromptConfig;
+  thread: ThreadConfig;
   control: ControlConfig;
   stateDir: string;
   eventLog: string;
@@ -320,6 +339,7 @@ export function fromDict(d: Record<string, unknown>): Config {
     retry: retryFromDict((d['retry'] as Record<string, unknown>) || {}),
     ui: uiFromDict((d['ui'] as Record<string, unknown>) || {}),
     prompt: promptFromDict((d['prompt'] as Record<string, unknown>) || {}),
+    thread: threadFromDict((d['thread'] as Record<string, unknown>) || {}),
     control: controlFromDict((d['control'] as Record<string, unknown>) || {}),
     stateDir,
     eventLog: String(d['event_log'] ?? 'events.jsonl'),

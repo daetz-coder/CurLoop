@@ -6,6 +6,7 @@ import { load as loadConfig, Config } from './config';
 import { buildStatus, loadEvents, loadSnapshot } from './observer';
 import { isAdmin, stopFilePath } from './loop';
 import { INIT_GOAL, INIT_TODO } from './cli';
+import * as cursor from './cursor';
 
 /**
  * curloop Web 界面（仿 dsh web）：`curloop web` 启动本地 HTTP 服务器并自动打开浏览器。
@@ -185,6 +186,8 @@ function router(cfg: Config): http.RequestListener {
             maxSwitches: cfg.retry.maxTotalAccountSwitchesPerRun,
             checkpointEveryTasks: cfg.prompt.checkpointEveryTasks,
             finalVerify: cfg.prompt.finalVerify,
+            rotateEveryTasks: cfg.thread.rotateEveryTasks,
+            goalInTask: cfg.prompt.goalInTask,
           },
         });
         return;
@@ -264,6 +267,26 @@ function router(cfg: Config): http.RequestListener {
         fs.writeFileSync(sp, `stop requested by web ui at ${new Date().toISOString()}\n`, 'utf-8');
         logLine(`[web] /api/stop 已写 ${sp}`);
         sendJson(res, 200, { ok: true, stopFile: sp });
+        return;
+      }
+      if (req.method === 'POST' && url === '/api/ask') {
+        // 人在回路：手动向 Cursor 发送一条消息（调试/介入）。需要 Cursor 带 CDP 运行。
+        const body = await readJsonBody(req);
+        const prompt = String(body['prompt'] ?? '').trim();
+        if (!prompt) {
+          sendJson(res, 400, { ok: false, error: 'prompt 为空' });
+          return;
+        }
+        const project = body['project'] ? path.resolve(String(body['project'])) : cfg.projectDir;
+        const askCfg = cfgFor(project);
+        cursor.init(askCfg);
+        if (!(await cursor.cdpUp(askCfg.cursor.port))) {
+          sendJson(res, 409, { ok: false, error: 'CDP 未就绪（Cursor 未带调试端口运行）' });
+          return;
+        }
+        const sr = await cursor.sendPrompt(askCfg, prompt, true);
+        logLine(`[web] /api/ask -> ${sr['ok'] ? '已发送' : '失败: ' + String(sr['error'] ?? JSON.stringify(sr['type'] ?? ''))}`);
+        sendJson(res, sr['ok'] ? 200 : 500, { ok: Boolean(sr['ok']), detail: sr });
         return;
       }
       if (req.method === 'POST' && url === '/api/init') {

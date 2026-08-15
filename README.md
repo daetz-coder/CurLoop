@@ -60,16 +60,21 @@ curloop web --no-open           # 只启动服务，不打开浏览器
 在浏览器里完成全部 CLI 操作（**CLI 搬到 Web**）：
 
 - **可视化**：统计卡片（换号/对话/完成/续接）、**SVG 轨迹时间线**（任务条：绿=完成、红=跳过、黄=进行中；菱形=换号成功、✗=失败）、TODO 队列、账号列表、最近事件表、结束报告
-- **控制**：一键运行（模式/项目/最大任务/最大换号）、停止（写 STOP 文件优雅收尾）、只生成 TODO（plan）、初始化项目（输入最终目标生成 FinalGoal.md + TODO.md）
+- **控制**：一键运行（模式/项目/最大任务/最大换号）、停止（写 STOP 文件优雅收尾）、只生成 TODO（plan）、初始化项目（输入最终目标生成 FinalGoal.md + TODO.md）、**手动向 Cursor 发送消息**（人在回路/调试）
 - **实时**：运行子进程日志流式回传（刷新页面不中断）；页面每 2 秒自动刷新状态/事件
 
 说明：`live` / `limit-sim` 需要管理员——用管理员终端启动 `curloop web`；服务只绑定 `127.0.0.1`。
 
-## 长对话 / 可控 / 最终（Harness 设计）
+## 长对话 / 记忆 / 可控 / 最终（Harness 设计）
 
-- **长对话续接**：任务提示词自带仓库上下文（git 最近提交、未提交改动、`HARNESS_STATE.md` 进度小结），
-  换号/重启/线程变长后 Agent 仍能对齐进度。可选 `prompt.checkpoint_every_tasks: 5`：每完成 5 个任务，
-  让 Agent 把进度固化写入 `HARNESS_STATE.md`。
+- **长对话（真正的压缩）**：
+  - `thread.rotate_every_tasks: 6`：每完成 6 个任务自动点「New Chat」开**新线程**，先固化记忆再发**续接提示词**
+    （HARNESS_STATE.md + git + 剩余 TODO + FinalGoal），上下文有界、长跑不降质；0 = 保持单线程（默认）
+  - `prompt.checkpoint_every_tasks: 5`：让 Agent 定期把进度小结写入 `HARNESS_STATE.md`
+- **记忆（持久化）**：`HARNESS_STATE.md` 由 harness 在**每次结束**（run_done / 中断 / STOP / 中止 / 崩溃）自动生成
+  （队列 + 账号 + 最近事件），任何新会话/恢复都有最低上下文；snapshot.json + events.jsonl 断点续跑不变
+- **提示词（可定制）**：`prompt.task_prompt_file` 指定自定义任务提示词文件（支持 `{project}` `{task}` `{retries}`
+  占位符，存在则完全覆盖内置）；`prompt.goal_in_task: true` 让任务提示词附带 FinalGoal 目标提示
 - **自动换号**：撞 limit/登出自动换号（`login_assistant`），预算 `retry.max_total_account_switches_per_run`（0=不限）；
   CLI `--max-switches N` 可临时覆盖。
 - **可控**：
