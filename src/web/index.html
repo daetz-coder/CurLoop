@@ -165,9 +165,13 @@ details.panel .panel-b{padding-top:0}
   color:var(--muted-fg);background:var(--card);border-radius:var(--r-md);font-size:13px}
 .tl-empty svg{width:36px;height:36px;color:var(--border-strong)}
 .tl-hint{color:var(--muted-fg);font-size:12px;margin-top:8px}
-.legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-.legend .lg{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);
-  border-radius:999px;padding:2.5px 11px;font-size:11px;color:var(--muted-fg);box-shadow:var(--shadow-sm)}
+/* 图例：强制单行横向排列（nowrap + 超出横向滚动），dot+文字 极简样式 */
+.legend{display:flex;flex-direction:row;flex-wrap:nowrap;gap:14px;overflow-x:auto;margin-top:10px;
+  padding-bottom:2px;-webkit-overflow-scrolling:touch}
+.legend::-webkit-scrollbar{height:5px}
+.legend::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:3px}
+.legend .lg{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted-fg);
+  white-space:nowrap;flex:none;font-weight:500}
 .legend .lg i{width:8px;height:8px;border-radius:3px;flex:none;display:inline-block}
 .legend .lg i.cir{border-radius:50%}
 #report{font:12px/1.6 var(--mono);white-space:pre-wrap;word-break:break-all;max-height:420px;overflow:auto;
