@@ -34,7 +34,7 @@
   },
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json && node -e \"const fs=require('fs');fs.copyFileSync('src/win32.ps1','dist/win32.ps1');fs.cpSync('src/web','dist/web',{recursive:true})\"",
+    "build": "tsc -p tsconfig.json && node -e \"const fs=require('fs');fs.copyFileSync('src/win32.ps1','dist/win32.ps1');fs.cpSync('src/web','dist/web',{recursive:true});fs.cpSync('src/assets','dist/assets',{recursive:true})\"",
     "prepack": "npm run build",
     "watch": "tsc -p tsconfig.json --watch"
   },

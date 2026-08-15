@@ -174,22 +174,22 @@ function pathKeyConfigured(section: string, key: string): boolean {
 
 /** 生成路径检测报告：未配置的项自动检测（每次实时重跑）。 */
 function detectReport(cfg: Config): Record<string, unknown> {
-  const item = (label: string, key: string, value: string, userSet: boolean): Record<string, unknown> => ({
+  const item = (label: string, key: string, value: string, userSet: boolean, builtin = false): Record<string, unknown> => ({
     label,
     key,
     value,
     found: Boolean(value) && fs.existsSync(value),
-    source: userSet ? '已配置' : '自动检测',
+    source: userSet ? '已配置' : builtin ? '内置' : '自动检测',
   });
   const items = [
     item('Cursor 可执行文件', 'cursor.exe', cfg.cursor.exe, pathKeyConfigured('cursor', 'exe')),
     item('Cursor 配置目录', 'cursor.profile', cfg.cursor.profile, pathKeyConfigured('cursor', 'profile')),
     item('换号助手', 'login_assistant.exe', cfg.loginAssistant.exe, pathKeyConfigured('login_assistant', 'exe')),
-    item('刷新模板图片', 'login_assistant.refresh_template', cfg.loginAssistant.refreshTemplate || detectTemplate('refresh_cursor') || '', pathKeyConfigured('login_assistant', 'refresh_template')),
-    item('确认模板图片', 'login_assistant.confirm_template', cfg.loginAssistant.confirmTemplate || detectTemplate('confirm_ok') || '', pathKeyConfigured('login_assistant', 'confirm_template')),
+    item('刷新模板图片', 'login_assistant.refresh_template', cfg.loginAssistant.refreshTemplate || detectTemplate('refresh_cursor') || '', pathKeyConfigured('login_assistant', 'refresh_template'), !cfg.loginAssistant.refreshTemplate),
+    item('确认模板图片', 'login_assistant.confirm_template', cfg.loginAssistant.confirmTemplate || detectTemplate('confirm_ok') || '', pathKeyConfigured('login_assistant', 'confirm_template'), !cfg.loginAssistant.confirmTemplate),
   ];
   const foundCount = items.filter((i) => i['found']).length;
-  return { ok: true, items, found: foundCount, total: items.length };
+  return { ok: true, items, found: foundCount, total: items.length, allReady: foundCount === items.length };
 }
 
 /** 更新用户配置：把分节参数合并进 %APPDATA%\curloop\config.json 并热重载。 */

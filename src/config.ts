@@ -107,8 +107,20 @@ export function detectCursorExe(): string | null {
   return null;
 }
 
-/** 自动检测换号助手模板图片（refresh_cursor / confirm_ok）：桌面 + 下载目录。 */
+/** 内置模板图片目录：dist/assets/templates（构建时从 src/assets 复制）。 */
+export function builtinTemplatePath(name: 'refresh_cursor' | 'confirm_ok'): string {
+  return path.join(__dirname, 'assets', 'templates', `${name}.png`);
+}
+
+/** 自动检测换号助手模板图片（refresh_cursor / confirm_ok）：
+ *  优先内置（打包自带，用户无需自己截图），内置缺失时才扫描桌面 + 下载目录。 */
 export function detectTemplate(name: 'refresh_cursor' | 'confirm_ok'): string | null {
+  const builtin = builtinTemplatePath(name);
+  try {
+    if (fs.existsSync(builtin)) return builtin;
+  } catch {
+    /* ignore */
+  }
   for (const d of [path.join(os.homedir(), 'Desktop'), path.join(os.homedir(), 'Downloads')]) {
     let hits: string[] = [];
     try {

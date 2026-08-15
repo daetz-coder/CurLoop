@@ -1121,13 +1121,13 @@ function applyDetect(d){
     inp.value = it.value || '';
     if(!f.editable) inp.readOnly = true;
     const stCls = it.found ? 'text-bg-success' : 'text-bg-danger';
-    const stTxt = (it.found ? '✓ 已找到' : '✗ 未找到') + ' · ' + (it.source || '自动检测');
-    st.textContent = stTxt;
+    st.textContent = it.found ? '正常' : '异常';
     st.className = 'badge ' + stCls;
     st.title = it.value || '';
   }
-  $('detect-summary').textContent = d.found + ' / ' + d.total + ' 项就绪';
-  $('detect-summary').className = 'badge ' + (d.found === d.total ? 'text-bg-success' : 'text-bg-warning');
+  const ready = d.allReady;
+  $('detect-summary').textContent = ready ? '正常' : '异常';
+  $('detect-summary').className = 'badge ' + (ready ? 'text-bg-success' : 'text-bg-warning');
 }
 
 async function loadDetect(){
