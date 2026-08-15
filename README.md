@@ -12,16 +12,22 @@
 npm install -g curloop
 ```
 
-国内网络下载 Python 慢或失败（`ECONNRESET`）时：
+国内网络下载 Python 慢或失败（`ECONNRESET`）时：postinstall 内置多镜像自动重试
+（GitHub → ghproxy.net → gh.ddlc.top → ghfast.top → mirror.ghproxy.com），多数情况直接重装即可；仍不行再手动指定：
 
 ```powershell
 # 方式 A：指定镜像 URL 再装
-$env:CURSOR_HARNESS_PYTHON_URL = "https://<镜像>/cpython-3.12.13%2B20260807-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
+$env:CURSOR_HARNESS_PYTHON_URL = "https://<镜像>/github.com/astral-sh/python-build-standalone/releases/download/20260807/cpython-3.12.13%2B20260807-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
 npm install -g curloop --registry https://registry.npmjs.org
 
 # 方式 B：跳过 postinstall，手动放入 runtime\python\python.exe 后再 pip
 npm install -g curloop --registry https://registry.npmjs.org --ignore-scripts
 ```
+
+> npm 11+ 安装时出现 `allow-scripts` 警告属正常现象：postinstall 仍会执行（依赖自动下载安装）。
+> 仅当你主动加了 `--ignore-scripts`（方式 B）时脚本才被跳过，此时需按方式 B 手动补齐
+> `runtime\python\python.exe` 并执行 `& "runtime\python\python.exe" -m pip install -r requirements.txt`，
+> 否则 `curloop` 会报「未找到嵌入式 Python」。
 
 若出现 `EPERM` 删不掉旧目录：先关掉占用该目录的终端/杀毒扫描，再：
 

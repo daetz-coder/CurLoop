@@ -28,9 +28,13 @@ const ASSET =
 const GH_PATH =
   `astral-sh/python-build-standalone/releases/download/${TAG}/${ASSET}`;
 const DEFAULT_URL = `https://github.com/${GH_PATH}`;
+// 镜像（2026-08 实测：ghproxy.net / gh.ddlc.top 快；ghfast.top / mirror.ghproxy.com 慢但可用。
+// gitmirror.com 域名已失效（ENOTFOUND），勿再加回。各镜像 URL 格式不同：
+// 有的要 github.com 前缀，有的要完整 https:// 前缀，改前务必实测 HTTP 200 + 正确 content-length。）
 const MIRROR_URLS = [
+  `https://ghproxy.net/github.com/${GH_PATH}`,
+  `https://gh.ddlc.top/github.com/${GH_PATH}`,
   `https://ghfast.top/https://github.com/${GH_PATH}`,
-  `https://gitmirror.com/https://github.com/${GH_PATH}`,
   `https://mirror.ghproxy.com/https://github.com/${GH_PATH}`,
 ];
 
@@ -138,16 +142,37 @@ async function ensurePython() {
   log('Python 就绪:', PY_EXE);
 }
 
-function pipInstall() {
+async function pipInstall() {
   const req = path.join(ROOT, 'requirements.txt');
+  // 显式指定 index-url：避免被用户 %APPDATA%\pip\pip.ini（如指向不稳定镜像）劫持。
+  // 优先尊重用户显式设置的 PIP_INDEX_URL；否则 PyPI 官方，整体重试后自动切腾讯云镜像。
+  const envIndex = (process.env.PIP_INDEX_URL || '').trim();
+  const indexes = [
+    envIndex || 'https://pypi.org/simple/',
+    'https://mirrors.cloud.tencent.com/pypi/simple/',
+  ];
   log('安装 Python 依赖 (pip install -r requirements.txt) ...');
-  const r = spawnSync(
-    PY_EXE,
-    ['-m', 'pip', 'install', '--disable-pip-version-check', '-r', req],
-    { stdio: 'inherit' }
-  );
+  // 国内直连 PyPI 偶发断流（IncompleteRead/ECONNRESET），pip 内建 retries + 外层整体重试 + 换源
+  const attempts = 3;
+  let r = null;
+  for (let i = 1; i <= attempts; i++) {
+    const index = indexes[Math.min(i - 1, indexes.length - 1)];
+    if (i > 1) log(`pip 网络中断，第 ${i}/${attempts} 次重试 (index: ${index}) ...`);
+    r = spawnSync(
+      PY_EXE,
+      ['-m', 'pip', 'install', '--disable-pip-version-check',
+       '--retries', '3', '--timeout', '60',
+       '--index-url', index, '-r', req],
+      { stdio: 'inherit' }
+    );
+    if (r.status === 0) break;
+    err(`pip install 失败 (exit ${r.status})，第 ${i}/${attempts} 次`);
+    if (i < attempts) await sleep(1500 * i);
+  }
   if (r.status !== 0) {
-    err('pip install 失败 (exit', r.status, ')');
+    err('pip install 重试后仍失败 (exit', r.status, ')');
+    err('可手动指定可用镜像后重装：');
+    err('  $env:PIP_INDEX_URL = "https://mirrors.cloud.tencent.com/pypi/simple/"');
     process.exit(r.status || 1);
   }
   // 健康检查：关键依赖可导入才认为安装成功，避免"装了但缺依赖"的静默失败。
@@ -166,6 +191,6 @@ function pipInstall() {
 
 (async () => {
   await ensurePython();
-  pipInstall();
+  await pipInstall();
   log('完成。命令：curloop --check-config / curloop run');
 })().catch((e) => { err(e); process.exit(1); });
