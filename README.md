@@ -1,40 +1,33 @@
 # curloop
 
-无人值守 Cursor 编码循环（Windows）：CDP 驱动**真实 Cursor**，检测用量限制/登录失效后自动换号（换号助手 GUI 自动化）、重启并续接原会话，按目标项目的 `TODO.md` 复选框队列无人值守执行。
+无人值守 Cursor 编码循环（Windows，**TypeScript**）：CDP 驱动**真实 Cursor**，检测用量限制/登录失效后自动换号（换号助手 GUI 自动化）、重启并续接原会话，按目标项目的 `TODO.md` 复选框队列无人值守执行。
 
 > ⚠️ 自动换号绕过用量限制违反 Cursor ToS，账号存在风控/封禁风险。默认 `dry-run`，真实换号需显式 `--mode live` 且以管理员运行。
 
+## 架构（TypeScript 重写版）
+
+纯 Node.js / TypeScript，零 Python 依赖：
+
+- `src/*.ts` — TypeScript 源码（CommonJS 编译到 `dist/`）
+  - `cdp.ts` — CDP WebSocket 封装（`ws`）：启动/附加 Cursor、注入 JS、发送/检测
+  - `auth.ts` — 只读探测 `state.vscdb` 登录态（`node:sqlite`，绝不打印完整 token）
+  - `cursor.ts` — 弹窗关闭 / 发送 prompt / 回复轮询 / ensure-ready
+  - `detection.ts` — 用量限制 / 登出 / 回复完成检测（DOM 中英文关键词，注入 JS）
+  - `loginAssistant.ts` + `win32.ts` + `win32.ps1` — 换号助手 GUI 自动化：PowerShell 桥（Add-Type C#）窗口/截图/点击
+  - `template.ts` — 纯 TS 模板匹配（pngjs 灰度 + 降采样 NCC，语义对齐 pyautogui CCOEFF_NORMED）
+  - `todoQueue.ts` / `runState.ts` / `observer.ts` / `ui.ts` / `fileLock.ts` — TODO 队列、断点续跑（snapshot + events.jsonl）、状态统计、ANSI 渲染、跨进程同步锁
+  - `loop.ts` — 无人值守状态机（`--check-config` / `--dry-run` / `--detect-only` / `--mode live|limit-sim`）
+  - `cli.ts` — 交互 CLI + REPL（`run` / `plan` / `status` / `stats` / `watch` / `init`）
+- `bin/curloop.js` — Node 入口（flag 参数 → loop 直通；子命令/空 → 交互 CLI）
+
+仓库内 `unattended/*.py` 为旧 Python 实现，仅作参考/回归对比，不再维护；入口一律走 `dist/`。
+
 ## 安装
 
-要求：Windows + Node.js ≥ 18。首次安装会自动下载嵌入式 Python 3.12（约 21MB）并安装 Python 依赖，无需预装 Python。
+要求：**Windows + Node.js ≥ 22.13**（使用 `node:sqlite` 与 `Atomics.wait`）。无需 Python。
 
 ```bash
-npm install -g curloop
-```
-
-国内网络下载 Python 慢或失败（`ECONNRESET`）时：postinstall 内置多镜像自动重试
-（GitHub → ghproxy.net → gh.ddlc.top → ghfast.top → mirror.ghproxy.com），多数情况直接重装即可；仍不行再手动指定：
-
-```powershell
-# 方式 A：指定镜像 URL 再装
-$env:CURSOR_HARNESS_PYTHON_URL = "https://<镜像>/github.com/astral-sh/python-build-standalone/releases/download/20260807/cpython-3.12.13%2B20260807-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
-npm install -g curloop --registry https://registry.npmjs.org
-
-# 方式 B：跳过 postinstall，手动放入 runtime\python\python.exe 后再 pip
-npm install -g curloop --registry https://registry.npmjs.org --ignore-scripts
-```
-
-> npm 11+ 安装时出现 `allow-scripts` 警告属正常现象：postinstall 仍会执行（依赖自动下载安装）。
-> 仅当你主动加了 `--ignore-scripts`（方式 B）时脚本才被跳过，此时需按方式 B 手动补齐
-> `runtime\python\python.exe` 并执行 `& "runtime\python\python.exe" -m pip install -r requirements.txt`，
-> 否则 `curloop` 会报「未找到嵌入式 Python」。
-
-若出现 `EPERM` 删不掉旧目录：先关掉占用该目录的终端/杀毒扫描，再：
-
-```powershell
-npm uninstall -g curloop
-Remove-Item -Recurse -Force "$env:APPDATA\npm\node_modules\curloop" -ErrorAction SilentlyContinue
-npm install -g curloop --registry https://registry.npmjs.org
+npm install -g curloop        # 或本地开发：npm install && npm run build && npm link
 ```
 
 ## 快速开始
@@ -85,22 +78,20 @@ curloop run --mode live --project D:\path\to\project
 
 1. 以 `--remote-debugging-port=9333` 启动/附加真实 Cursor（真实 `%APPDATA%\Cursor` 配置）
 2. 通过 CDP 注入 JS 检测 DOM：用量/速率限制、登录失效、回复完成状态（中英文关键词）
-3. 撞限/掉线时自动换号：pyautogui 模板匹配点击换号助手「刷新Cursor → 确认」→ 等 token 翻转 → 重启续跑
+3. 撞限/掉线时自动换号：PowerShell 桥截图 → 纯 TS 模板匹配「刷新Cursor → 确认」→ 等 token 翻转 → 重启续跑
 4. 每个任务完成后自动 `git commit`，队列动态吸收 Agent 追加的新任务
-
-## 依赖
-
-- 嵌入式 Python 3.12.13（python-build-standalone），`npm install` 时下载到 `runtime\python\`
-- Python 依赖：`websockets` / `pyautogui` / `prompt_toolkit`（自动 pip 安装）
-- 可选：`pywinauto` / `comtypes` / `wmi`（UIA 兜底，未安装时自动降级为纯模板匹配）
 
 ## 从源码开发
 
 ```bash
 git clone git@github.com:daetz-coder/CurLoop.git
 cd CurLoop
-npm install && npm link     # 本地 curloop 命令指向本目录
+npm install
+npm run build        # tsc → dist/
+npm link             # 本地 curloop 命令指向本目录
 ```
+
+`npm run watch` 可增量编译。`npm pack` 前会自动 `npm run build`（prepack）。
 
 ## License
 

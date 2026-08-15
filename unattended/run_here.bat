@@ -27,7 +27,7 @@ if /i "%PROJECT%"=="%HARNESS%\unattended" (
   exit /b 1
 )
 
-rem ---- 管理员判定（与 loop.py 的 IsUserAnAdmin 同源）----
+rem ---- 管理员判定（与 loop 的 isAdmin 同源）----
 powershell -NoProfile -Command "exit ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"
 if errorlevel 1 goto :admin
 echo [..] 请求管理员权限，请在弹出的 UAC 提示中点"是"...
@@ -43,8 +43,8 @@ if errorlevel 1 goto :startcursor
 goto :ready
 :startcursor
 echo [..] 启动 Cursor（调试端口 %PORT%）：项目=%PROJECT%
-rem 用 python 静音启动（与 harness 的 launch_cursor 一致：DEVNULL + DETACHED，杜绝 Cursor 主进程日志污染控制台）
-python -c "import subprocess,sys; subprocess.Popen(sys.argv[1:], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=0x208)" "%CURSOR_EXE%" --remote-debugging-port=%PORT% --user-data-dir="%APPDATA%\Cursor" "%PROJECT%"
+rem 用 node 静音启动（detached + stdio ignore，杜绝 Cursor 主进程日志污染控制台）
+node -e "const{spawn}=require('child_process');const p=spawn(process.argv[1],process.argv.slice(2),{stdio:'ignore',detached:true});p.unref()" "%CURSOR_EXE%" --remote-debugging-port=%PORT% --user-data-dir="%APPDATA%\Cursor" "%PROJECT%"
 echo [..] 等待调试端口就绪（最多 60 秒）...
 set /a WAIT=0
 :waitport
@@ -58,8 +58,7 @@ if !WAIT! GEQ 20 (
 powershell -NoProfile -Command "Start-Sleep -Seconds 3"
 goto :waitport
 :ready
-echo [ok] Cursor 就绪
-（%PORT%）。请在 Cursor 中打开聊天界面（如尚未打开）。
+echo [ok] Cursor 就绪（%PORT%）。请在 Cursor 中打开聊天界面（如尚未打开）。
 
 rem ---- 2) 无人值守循环：发任务 / 弹窗 / 换号 / watchdog ----
 cd /d "%HARNESS%"
@@ -70,14 +69,14 @@ set /a CRASHES=0
 :loop
 rem 实时显示在控制台（不重定向）；watchdog 用退出码判断：
 rem   0=run_done 2=abort/配置错误 130=Ctrl-C  → 不重启；其他(1=崩溃) → 重启
-python -m unattended.loop --mode %MODE% --project "%PROJECT%"
+node "%HARNESS%\bin\curloop.js" --mode %MODE% --project "%PROJECT%"
 set "RC=!errorlevel!"
 if "!RC!"=="0" goto :end
 if "!RC!"=="2" goto :end
 if "!RC!"=="130" goto :end
 set /a CRASHES+=1
 if !CRASHES! GEQ 5 (
-  echo [fail] 连续异常退出 5 次，停止自动重启。请查看 %HARNESS%\unattended\runstate\events.jsonl
+  echo [fail] 连续异常退出 5 次，停止自动重启。请查看 %APPDATA%\curloop\runstate\events.jsonl
   goto :end
 )
 echo [..] 进程异常退出（exit=!RC!），10 秒后自动重启（第 !CRASHES!/5 次）...

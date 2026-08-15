@@ -58,26 +58,43 @@ python verify_conversation.py                                     # send HARNESS
 python verify_conversation_verdict.py                             # re-classify last conversation report
 ```
 
-## npm 分发（2026-08 重构：Python 核心不动，外壳层用 npm 分发）
+## TypeScript 架构（2026-08 重构：TypeScript 重写版，纯 Node，零 Python 依赖）
 
-项目本体是 Python（仅 Windows），npm 只做**分发壳**：`postinstall` 自动下载嵌入式 Python
-（python-build-standalone 3.12，`<pkg>/runtime/python/`，gitignore 不入库）并 `pip install -r requirements.txt`，
-`bin/*.js` 是 Node shim——保持当前 cwd、`PYTHONPATH` 指向包根、透传参数/stdio/退出码。
+> 分支 `feature/ts-rewrite`：核心已从 Python 重写为 TypeScript。**新开发一律在 `src/*.ts` 进行**，
+> `unattended/*.py` 是旧实现，仅作参考/回归对比，不要再改。
 
-```bash
-npm install                 # 仓库根：postinstall 下载嵌入式 Python + 装依赖（可设 CURSOR_HARNESS_PYTHON_URL 换镜像）
-npm link                    # 注册全局命令（本地验证）
-curloop --check-config       # 等价 python -m unattended.loop（flag 参数直通）
-curloop status                  # 等价 python harness.py（cwd = 目标项目）
-npm pack                    # 打发布包（files 白名单，排除 runtime/、__pycache__、runstate）
-```
+- 构建：`npm run build`（tsc → `dist/`），`npm run watch` 增量编译，`npm pack` 前自动 build（prepack）。
+- 入口：`bin/curloop.js`（Node）——flag 参数（`-` 开头）→ `dist/loop.js main()`；子命令/空 → `dist/cli.js main()`（REPL）。
+- 运行时依赖：`ws`（CDP）、`minimist`（CLI 解析）、`proper-lockfile`（跨进程锁，异步）、`pngjs`（模板匹配）。
+- **同步锁**：`src/fileLock.ts` 提供 `withSyncLock`（独占创建锁文件 + mtime 陈旧检测）——runState.log/save 与 todoQueue.ensureDone
+  在热路径必须同步完成，不要改成异步 `withLock`（proper-lockfile 是异步的，只有非热路径才用）。
+- **win32 桥**：`src/win32.ps1`（Add-Type C#：窗口/截图/点击）经 `src/win32.ts` 包装，`src/template.ts` 纯 TS 模板匹配
+  （pngjs 灰度 + 降采样 NCC，语义对齐 pyautogui CCOEFF_NORMED）。
+- 关键映射（Python → TS）：`loop.py`→`src/loop.ts`、`cli.py`→`src/cli.ts`、`todo_queue.py`→`src/todoQueue.ts`、
+  `run_state.py`→`src/runState.ts`、`observer.py`→`src/observer.ts`、`ui.py`→`src/ui.ts`、
+  `verify_cdp.py`→`src/cdp.ts`、`resume_after_auth.py`→`src/auth.ts`、`cursor_ctl.py`→`src/cursor.ts`、
+  `detection.py`→`src/detection.ts`、`login_assistant.py`→`src/loginAssistant.ts`、`assistant_probe.py`→`src/assistantProbe.ts`。
+- 配置外置不变：`config.default.json`（干净默认）+ `%APPDATA%\curloop\config.json`（用户覆盖）+ `--config FILE`；
+  runstate 默认 `%APPDATA%\curloop\runstate`，按 (项目绝对路径, git 分支) 隔离（`projectStateKey`）。
+  **`cfg.projectDir` 可在 load 后被 CLI 覆盖，`todoFile`/`projectStateDir` 等必须是动态 getter**（见 config.ts fromDict），
+  不要缓存成固定值——否则 `curloop status`/`run --project X` 会读错 runstate 目录。
+- TS 命令行验证（cd 到仓库根）：
+  ```bash
+  npm run build
+  node bin\curloop.js --check-config          # 只读配置自检
+  node bin\curloop.js --dry-run               # 只读：TODO 队列 + CDP/auth/模板状态
+  node bin\curloop.js status                  # 状态面板（当前目录 = 目标项目）
+  node bin\curloop.js run --mode limit-sim    # 换号链路测试（管理员）
+  node bin\curloop.js run --mode live --project D:\2026AppDev\RAGLab   # 无人值守（管理员）
+  ```
+- `*.bat`（run_unattended/run_here/run_limit_sim/curloop.cmd/harness.bat）已改为调用 `node bin\curloop.js`，
+  仍必须是 **ANSI/GBK + CRLF**（cmd.exe 用系统 OEM 码页解析），编辑后要按 GBK 重新保存。
 
-- 关键文件：`package.json`（bin: curloop，os: win32，files 白名单）、`bin/_common.js`（shim 公共逻辑）、
-  `bin/curloop.js`（合并入口：flag 参数→loop 直通，子命令/空→交互 CLI）、`scripts/install.js`（下载+解压嵌入式 Python，tar npm 包解压，内容上移一层）、`requirements.txt`。
-- 嵌入式 Python 锁定版本 `3.12.13`（python-build-standalone release `20260807`，install_only_stripped 约 21MB）。
-- **`*.bat` 不进 npm 包**（GBK/CRLF 本地开发仍可用），分发入口以 bin 命令为准。
-- 配置与运行状态外置：默认 `config.default.json` + `%APPDATA%\curloop\config.json`（用户覆盖）+ 自动检测路径，
-  runstate 默认 `%APPDATA%\curloop\runstate`。详见下方 `config.py` 条目。
+## npm 分发（2026-08 之前：Python 核心不动，外壳层用 npm 分发）
+
+> 历史方案（Python 核心 + npm 分发壳）已被 TypeScript 重写取代。以下仅作历史参考：
+> postinstall 下载嵌入式 Python（python-build-standalone 3.12，`<pkg>/runtime/python/`）并 pip 安装，
+> `bin/*.js` 是 Node shim 透传 `python -m unattended.loop` / `harness.py`。此路径不再维护。
 
 ## Architecture
 

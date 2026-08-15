@@ -10,6 +10,7 @@
  */
 const { spawnSync } = require('child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const https = require('https');
 const http = require('http');
@@ -19,6 +20,32 @@ const ROOT = path.resolve(__dirname, '..');
 const RUNTIME = path.join(ROOT, 'runtime');
 const PY_DIR = path.join(RUNTIME, 'python');
 const PY_EXE = path.join(PY_DIR, 'python.exe');
+
+// 进度日志：npm 11 的 allow-scripts 会缓冲 postinstall 的 stdout（成功时只显示转圈），
+// 所以把每个阶段的进度同时写入 %APPDATA%\curloop\install.log，开第二个终端
+// `Get-Content -Wait $env:APPDATA\curloop\install.log` 即可实时查看。
+const LOG_FILE = path.join(
+  process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'),
+  'curloop', 'install.log'
+);
+
+function appendLog(line) {
+  try {
+    fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true });
+    fs.appendFileSync(LOG_FILE, `${new Date().toISOString()} ${line}\n`);
+  } catch { /* 日志写入失败不影响安装 */ }
+}
+
+function log(...a) {
+  const line = `[curloop install] ${a.join(' ')}`;
+  console.log(line);
+  appendLog(line);
+}
+function err(...a) {
+  const line = `[curloop install] ${a.join(' ')}`;
+  console.error(line);
+  appendLog(line);
+}
 
 // python-build-standalone 锁定版本（可复现；stripped 去掉调试符号更小）
 const PY_VER = '3.12.13';
@@ -37,9 +64,6 @@ const MIRROR_URLS = [
   `https://ghfast.top/https://github.com/${GH_PATH}`,
   `https://mirror.ghproxy.com/https://github.com/${GH_PATH}`,
 ];
-
-function log(...a) { console.log('[curloop install]', ...a); }
-function err(...a) { console.error('[curloop install]', ...a); }
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -190,6 +214,9 @@ async function pipInstall() {
 }
 
 (async () => {
+  try { fs.writeFileSync(LOG_FILE, ''); } catch { /* ignore */ }
+  log(`安装开始。进度日志: ${LOG_FILE}`);
+  log('（npm 11 缓冲了终端输出，可另开终端实时查看上面日志文件）');
   await ensurePython();
   await pipInstall();
   log('完成。命令：curloop --check-config / curloop run');

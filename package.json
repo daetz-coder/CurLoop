@@ -1,7 +1,7 @@
 {
   "name": "curloop",
-  "version": "0.1.9",
-  "description": "无人值守 Cursor 编码循环：CDP 驱动真实 Cursor，检测用量/登录限制自动换号，按目标项目 TODO.md 队列无人值守执行（仅 Windows）。",
+  "version": "0.2.0",
+  "description": "无人值守 Cursor 编码循环（TypeScript 重写版）：CDP 驱动真实 Cursor，检测用量/登录限制自动换号，按目标项目 TODO.md 队列无人值守执行（仅 Windows）。",
   "keywords": [
     "cursor",
     "cdp",
@@ -26,26 +26,37 @@
   "os": [
     "win32"
   ],
-  "license": "UNLICENSED",
   "engines": {
-    "node": ">=18"
+    "node": ">=22.13"
   },
   "bin": {
     "curloop": "bin/curloop.js"
   },
+  "main": "dist/index.js",
   "scripts": {
-    "postinstall": "node scripts/install.js"
+    "build": "tsc -p tsconfig.json && node -e \"require('fs').copyFileSync('src/win32.ps1', 'dist/win32.ps1')\"",
+    "prepack": "npm run build",
+    "watch": "tsc -p tsconfig.json --watch"
   },
   "dependencies": {
-    "tar": "^7.4.3"
+    "minimist": "^1.2.8",
+    "pngjs": "^7.0.0",
+    "proper-lockfile": "^4.1.2",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/minimist": "^1.2.5",
+    "@types/node": "^22.10.0",
+    "@types/pngjs": "^6.0.5",
+    "@types/proper-lockfile": "^4.1.4",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.7.0"
   },
   "files": [
     "bin/",
-    "scripts/",
-    "unattended/",
-    "!unattended/__pycache__/",
-    "*.py",
-    "requirements.txt",
+    "dist/",
+    "src/",
+    "config.default.json",
     "README.md"
   ]
 }

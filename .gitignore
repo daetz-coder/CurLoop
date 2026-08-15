@@ -26,7 +26,11 @@ _selftest/__pycache__/
 # ---------- npm 分发（本地产物，不入库） ----------
 node_modules/
 runtime/
+dist/
 *.tgz
+
+# ---------- 安装测试夹具（本地临时） ----------
+_installtest/
 
 # ---------- IDE / 编辑器 ----------
 .idea/
