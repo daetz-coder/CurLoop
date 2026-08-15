@@ -299,6 +299,22 @@ function router(): http.RequestListener {
         sendJson(res, 200, { ok: true, snapshot: loadSnapshot(cfg.projectDir, cfg.stateDir) });
         return;
       }
+      if (req.method === 'GET' && url === '/api/goal') {
+        // FinalGoal.md 内容（无固定格式，前端用 Markdown 渲染）
+        const p = cfg.finalGoalFilePath;
+        let content = '';
+        let exists = false;
+        try {
+          if (fs.existsSync(p)) {
+            content = fs.readFileSync(p, 'utf-8');
+            exists = true;
+          }
+        } catch {
+          /* ignore */
+        }
+        sendJson(res, 200, { ok: true, path: p, exists, content });
+        return;
+      }
       if (req.method === 'GET' && url === '/api/report') {
         const rp = path.join(cfg.projectStateDir, 'report.json');
         let report: unknown = null;

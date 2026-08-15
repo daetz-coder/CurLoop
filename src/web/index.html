@@ -179,6 +179,27 @@ details.panel .panel-b{padding-top:0}
 .help{font-size:12.5px;color:var(--muted-fg);line-height:1.8}
 .help a{color:var(--blue);text-decoration:none}
 .help a:hover{text-decoration:underline}
+/* ============ Markdown 渲染（FinalGoal） ============ */
+.md{font-size:13.5px;line-height:1.75;color:var(--ink-2,#334155);max-width:860px}
+.md h1,.md h2,.md h3,.md h4{color:var(--fg);font-weight:650;letter-spacing:-.01em;margin:1.1em 0 .5em;line-height:1.35}
+.md h1{font-size:20px;padding-bottom:.4em;border-bottom:1px solid var(--border)}
+.md h2{font-size:17px} .md h3{font-size:15px} .md h4{font-size:13.5px}
+.md p{margin:.55em 0}
+.md ul,.md ol{margin:.55em 0;padding-left:1.5em}
+.md li{margin:.22em 0}
+.md li.task-list-item{list-style:none;margin-left:-1.4em}
+.md li.task-list-item input{margin-right:.5em}
+.md code{background:var(--muted);border:1px solid var(--border);border-radius:5px;padding:1px 5px;font:12px var(--mono);color:#be123c}
+.md pre{background:#0b0c0e;border-radius:10px;padding:12px 14px;overflow-x:auto;margin:.7em 0}
+.md pre code{background:none;border:none;padding:0;color:#d1d1d6}
+.md blockquote{margin:.7em 0;padding:2px 14px;border-left:3px solid var(--border-strong);color:var(--muted-fg)}
+.md table{border-collapse:collapse;margin:.7em 0;width:100%}
+.md th,.md td{border:1px solid var(--border);padding:6px 10px;font-size:12.5px}
+.md th{background:var(--muted);font-weight:600}
+.md hr{border:none;border-top:1px solid var(--border);margin:1em 0}
+.md a{color:var(--blue);text-decoration:none}
+.md a:hover{text-decoration:underline}
+.md strong{color:var(--fg)}
 .footer{color:var(--faint);font-size:12px;text-align:center;padding:18px 0;margin-top:8px}
 .footer a{color:var(--muted-fg);text-decoration:none}
 .footer a:hover{color:var(--blue)}
@@ -410,8 +431,8 @@ details.panel .panel-b{padding-top:0}
 
       <!-- ============ 队列 ============ -->
       <section class="view" id="view-queue">
-        <div class="row g-3">
-          <div class="col-lg-7">
+        <div class="row g-3 mb-3">
+          <div class="col-lg-6">
             <div class="panel h-100">
               <div class="panel-h"><span class="t">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
@@ -419,13 +440,22 @@ details.panel .panel-b{padding-top:0}
               <div id="queue"><div class="p-3 text-secondary">加载中…</div></div>
             </div>
           </div>
-          <div class="col-lg-5">
+          <div class="col-lg-6">
             <div class="panel h-100">
               <div class="panel-h"><span class="t">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>
                 账号 / 换号</span></div>
               <div id="accounts"><div class="p-3 text-secondary">加载中…</div></div>
             </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><span class="t">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
+            FinalGoal · 最终目标</span>
+            <span class="badge text-bg-secondary" id="goal-path" title="FinalGoal.md 路径">—</span></div>
+          <div class="panel-b">
+            <div class="md" id="goal-md"><p class="text-secondary">加载中…</p></div>
           </div>
         </div>
       </section>
@@ -507,6 +537,7 @@ details.panel .panel-b{padding-top:0}
 
 <script src="vendor/tabler/tabler.min.js"></script>
 <script src="vendor/echarts/echarts.min.js"></script>
+<script src="vendor/marked/marked.min.js"></script>
 <script>
 'use strict';
 const $ = (id) => document.getElementById(id);
@@ -547,6 +578,7 @@ function switchView(name){
   if(name === 'events') refreshEvents();
   if(name === 'timeline') refreshCharts();
   if(name === 'report') loadReport();
+  if(name === 'queue') loadGoal();
   if(timelineChart) timelineChart.resize();
   if(activityChart) activityChart.resize();
 }
@@ -665,6 +697,28 @@ async function refreshConsole(){
 async function loadReport(){
   const d = await api('/api/report');
   $('report').textContent = d.report ? JSON.stringify(d.report, null, 2) : '（暂无 report.json）';
+}
+
+// ============ FinalGoal（Markdown 渲染） ============
+async function loadGoal(){
+  const d = await api('/api/goal');
+  if(!d.ok) return;
+  $('goal-path').textContent = d.path || '—';
+  $('goal-path').title = d.path || '';
+  if(d.exists && d.content){
+    if(window.marked && marked.parse){
+      $('goal-md').innerHTML = marked.parse(d.content);
+    } else {
+      // marked 未加载时退化为纯文本
+      const pre = document.createElement('pre');
+      pre.textContent = d.content;
+      pre.style.cssText = 'white-space:pre-wrap;font:12px/1.7 var(--mono);color:var(--muted-fg)';
+      $('goal-md').innerHTML = '';
+      $('goal-md').appendChild(pre);
+    }
+  } else {
+    $('goal-md').innerHTML = '<p class="text-secondary" style="margin:0">暂无 FinalGoal.md —— 可在「控制台 → 初始化项目」中生成，或用 <code>curloop init --final-goal</code>。</p>';
+  }
 }
 
 // ============ charts ============
@@ -859,6 +913,7 @@ $('btn-init').addEventListener('click', async () => {
   div.style.color = L.green;
   $('console').appendChild(div);
   refreshStatus();
+  loadGoal();
 });
 
 $('btn-ask').addEventListener('click', async () => {
@@ -877,7 +932,7 @@ $('btn-ask').addEventListener('click', async () => {
   $('f-ask').value = '';
 });
 
-$('btn-refresh').addEventListener('click', () => { refreshStatus(); refreshEvents(); refreshCharts(); loadReport(); });
+$('btn-refresh').addEventListener('click', () => { refreshStatus(); refreshEvents(); refreshCharts(); loadReport(); loadGoal(); });
 $('btn-report').addEventListener('click', loadReport);
 $('btn-timeline-refresh').addEventListener('click', () => refreshCharts());
 
@@ -918,6 +973,7 @@ async function tick(){
 setInterval(() => { tick().catch(() => {}); }, 2000);
 setInterval(() => { refreshCharts().catch(() => {}); }, 5000);
 loadReport();
+loadGoal();
 window.addEventListener('resize', () => { if(timelineChart) timelineChart.resize(); if(activityChart) activityChart.resize(); });
 </script>
 </body>
