@@ -14,16 +14,6 @@ export function setCursorExe(exe: string): void {
   CURSOR_EXE = exe;
 }
 
-export interface ProbeResult {
-  ok: boolean;
-  port: number;
-  version: unknown | null;
-  targets: Record<string, unknown>[];
-  pagesProbed: Record<string, unknown>[];
-  errors: string[];
-  launchPid?: number;
-}
-
 export async function httpJson(url: string, timeout = 6.0): Promise<unknown> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), Math.max(1, timeout * 1000));
@@ -491,40 +481,6 @@ export async function tryFocusAndType(
       typedCheck,
       submitted: submit,
     };
-  } finally {
-    await session.close();
-  }
-}
-
-export async function tryDismiss(port: number, page: ProbePage): Promise<Record<string, unknown>> {
-  const probe = page.probe || {};
-  const dismiss = ((probe['buttons'] as Record<string, unknown>[]) || []).filter(
-    (b) => b['kind'] === 'dismiss',
-  );
-  if (!dismiss.length) {
-    return { ok: false, reason: 'no_dismiss_button' };
-  }
-  const target = await findTarget(port, page);
-  if (!target) {
-    return { ok: false, reason: 'target_missing' };
-  }
-  const btn = dismiss[0];
-  const session = new CdpSession(target['webSocketDebuggerUrl'] as string);
-  try {
-    await session.connect();
-    await session.call('Runtime.enable');
-    const want = String(btn['text'] || btn['ariaLabel'] || '');
-    const js = String.raw`(() => {
-      const want = ${JSON.stringify(want).toLowerCase()};
-      const nodes = [...document.querySelectorAll('button, [role="button"], a')];
-      const el = nodes.find(n => ((n.innerText||n.getAttribute('aria-label')||'')+'').trim().toLowerCase() === want)
-        || nodes.find(n => /not now|maybe later|no thanks|skip|稍后再说|暂不|关闭/i.test(((n.innerText||n.getAttribute('aria-label')||'')+'')));
-      if (!el) return { ok:false, reason:'not_found' };
-      el.click();
-      return { ok:true, text: ((el.innerText||el.getAttribute('aria-label')||'')+'').trim().slice(0,80) };
-    })()`;
-    const result = (await session.evaluate(js)) as Record<string, unknown> | null;
-    return { ok: Boolean(result && result['ok']), detail: result, candidate: btn };
   } finally {
     await session.close();
   }

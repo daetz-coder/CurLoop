@@ -825,7 +825,7 @@ async function refreshConsole(){
   if(!d.ok) return;
   const led = $('console-led');
   led.className = 'led' + (d.running ? ' on' : '');
-  $('console-status').textContent = d.running ? (d.kind === 'plan' ? '规划中…' : '运行中…') : (d.exitCode != null ? '已结束（码 ' + d.exitCode + '）' : '空闲');
+  $('console-status').textContent = d.running ? '运行中…' : (d.exitCode != null ? '已结束（码 ' + d.exitCode + '）' : '空闲');
   if(d.lines && d.lines.length){
     state.since = d.since;
     const box = $('console');

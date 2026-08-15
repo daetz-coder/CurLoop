@@ -174,10 +174,6 @@ export const PROMPT_DEFS: PromptDef[] = [
   { key: 'expand_goal', label: '初始化扩写', description: '新项目引导：把用户目标扩写为完整 FinalGoal + 初始 TODO。', location: 'src/cli.ts · expandGoal', placeholders: '{project} {goal}', template: EXPAND_GOAL_TEMPLATE },
 ];
 
-export function promptDef(key: string): PromptDef | undefined {
-  return PROMPT_DEFS.find((d) => d.key === key);
-}
-
 // ------------------------------------------------------------ git context ----
 function git(dir: string, args: string[], limit = 2000): string {
   try {

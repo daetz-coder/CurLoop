@@ -41,14 +41,12 @@
   "dependencies": {
     "minimist": "^1.2.8",
     "pngjs": "^7.0.0",
-    "proper-lockfile": "^4.1.2",
     "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/minimist": "^1.2.5",
     "@types/node": "^22.10.0",
     "@types/pngjs": "^6.0.5",
-    "@types/proper-lockfile": "^4.1.4",
     "@types/ws": "^8.5.13",
     "typescript": "^5.7.0"
   },

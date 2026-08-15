@@ -135,19 +135,6 @@ export async function locateTemplate(
   }
 }
 
-export async function clickTemplate(
-  templateFile: string,
-  confidence: number,
-  timeoutS: number,
-  poll = 1.0,
-): Promise<TemplateLocateResult> {
-  const loc = await locateTemplate(templateFile, confidence, timeoutS, poll);
-  if (!loc.ok || !loc.center) return loc;
-  const [cx, cy] = loc.center;
-  await win32.clickAt(cx, cy);
-  return { ...loc, clicked: true };
-}
-
 async function findAssistantWindow(exePath: string, timeoutS: number): Promise<[number | null, string[]]> {
   const deadline = Date.now() + timeoutS * 1000;
   let seen: string[] = [];

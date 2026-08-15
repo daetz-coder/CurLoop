@@ -1,69 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import * as proper from 'proper-lockfile';
 
 /**
- * 跨进程简易文件锁：proper-lockfile 封装（Windows 上可靠、带陈旧锁检测与
- * 自动续期）。语义与 Python 版 msvcrt 字节锁一致：写 snapshot/events/TODO
- * 时独占，避免双 curloop 互踩。锁文件为 `<target>.lock`。
+ * 跨进程简易文件锁：同步独占锁（独占创建锁文件 + mtime 陈旧检测）。
+ * 语义与 Python 版 msvcrt 字节锁一致：写 snapshot/events/TODO 时独占，
+ * 避免双 curloop 互踩。锁文件即 lockFilePath（与 Python 一致，不产生 .lock.lock）。
  */
-
-export class FileLock {
-  private target: string;
-  private releaseFn: (() => Promise<void>) | null = null;
-
-  constructor(lockFilePath: string) {
-    // Python 版：锁文件路径即 `.lock`；proper-lockfile 锁定目标文件并生成
-    // `<target>.lock`。传入的 lockFilePath 就是“目标文件”，保持外部行为不变
-    // （run_state 用 snapshot 旁的 .lock，todo 用 todo.lock）。
-    this.target = lockFilePath;
-  }
-
-  async acquire(timeoutS = 30.0): Promise<void> {
-    try {
-      this.releaseFn = await proper.lock(this.target, {
-        stale: 10_000,
-        update: 2_000,
-        retries: {
-          retries: Math.max(1, Math.round(timeoutS / 0.1)),
-          factor: 1,
-          minTimeout: 100,
-          maxTimeout: 100,
-        },
-        realpath: false,
-      });
-    } catch (e) {
-      throw new Error(`file lock timeout: ${path.basename(this.target)} (${String(e)})`);
-    }
-  }
-
-  async release(): Promise<void> {
-    if (this.releaseFn) {
-      const fn = this.releaseFn;
-      this.releaseFn = null;
-      try {
-        await fn();
-      } catch {
-        /* lockfile already gone */
-      }
-    }
-  }
-}
-
-/** 便捷上下文：acquire 后执行 fn，finally 释放。 */
-export async function withLock<T>(
-  lockFilePath: string,
-  fn: () => Promise<T>,
-  timeoutS = 30.0,
-): Promise<T> {
-  const lock = new FileLock(lockFilePath);
-  await lock.acquire(timeoutS);
-  try {
-    return await fn();
-  } finally {
-    await lock.release();
-  }
-}
 
 // ------------------------------------------------------- synchronous lock ----
 // Python 版 FileLock 是同步的（msvcrt 字节锁，进程退出自动释放）；Node 的

@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as http from 'http';
 import { load as loadConfig, Config, USER_CONFIG, detectTemplate } from './config';
-import { buildStatus, loadEvents, loadSnapshot } from './observer';
+import { buildStatus, loadEvents } from './observer';
 import { isAdmin, stopFilePath } from './loop';
 import { INIT_GOAL, INIT_TODO } from './cli';
 import * as cursor from './cursor';
@@ -87,7 +87,7 @@ function sendJson(res: http.ServerResponse, code: number, obj: unknown): void {
 }
 
 // ------------------------------------------------------------------- child ----
-function spawnTool(cfg: Config, kind: 'run' | 'plan', extra: string[]): { ok: boolean; error?: string } {
+function spawnTool(cfg: Config, kind: 'run', extra: string[]): { ok: boolean; error?: string } {
   if (activeChild) return { ok: false, error: `已有 ${activeChild.kind} 在运行，请先停止` };
   const entry = path.join(__dirname, '..', 'bin', 'curloop.js');
   const args = [entry, kind, '--project', cfg.projectDir, ...extra];
@@ -329,10 +329,6 @@ function router(): http.RequestListener {
         sendJson(res, 200, { ok: true, events: evs });
         return;
       }
-      if (req.method === 'GET' && url === '/api/snapshot') {
-        sendJson(res, 200, { ok: true, snapshot: loadSnapshot(cfg.projectDir, cfg.stateDir) });
-        return;
-      }
       if (req.method === 'GET' && url === '/api/dirs') {
         // 服务端目录浏览（目标项目选择器）：空 path 返回盘符，否则列出子目录
         const q = new URL(req.url || '', 'http://x');
@@ -451,14 +447,6 @@ function router(): http.RequestListener {
         const runCfg = cfgFor(project);
         runCfg.mode = mode;
         const r = spawnTool(runCfg, 'run', ['--mode', mode]);
-        sendJson(res, r.ok ? 200 : 500, r);
-        return;
-      }
-      if (req.method === 'POST' && url === '/api/plan') {
-        const body = await readJsonBody(req);
-        const project = body['project'] ? path.resolve(String(body['project'])) : cfg.projectDir;
-        const runCfg = cfgFor(project);
-        const r = spawnTool(runCfg, 'plan', []);
         sendJson(res, r.ok ? 200 : 500, r);
         return;
       }

@@ -4,7 +4,6 @@ import * as os from 'os';
 import * as path from 'path';
 
 export const PKG_DIR = path.resolve(__dirname, '..');
-export const HARNESS_DIR = PKG_DIR;
 // 仓库内默认配置（干净默认值，不含任何本机路径）
 export const DEFAULT_CONFIG = path.join(PKG_DIR, 'config.default.json');
 
