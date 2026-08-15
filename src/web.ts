@@ -709,7 +709,39 @@ function openBrowser(url: string): void {
   }
 }
 
+/** 非管理员启动时：请求 UAC 提权，以管理员身份重启自身（同样参数）。
+ *  返回 true = 已提权重启（本进程应退出）；false = 提权失败/已取消，继续以非管理员运行。 */
+async function relaunchAsAdmin(args: WebArgs): Promise<boolean> {
+  const entry = path.join(__dirname, '..', 'bin', 'curloop.js');
+  const parts = [entry, 'web'];
+  if (args.port) parts.push('--port', String(args.port));
+  if (args.project) parts.push('--project', String(args.project));
+  if (args.mode) parts.push('--mode', String(args.mode));
+  if (args['no-open']) parts.push('--no-open');
+  const argStr = parts.map((a) => `'${String(a).replace(/'/g, "''")}'`).join(', ');
+  const ps = `Start-Process -FilePath '${process.execPath.replace(/'/g, "''")}' -ArgumentList ${argStr} -Verb RunAs`;
+  return await new Promise<boolean>((resolve) => {
+    cp.exec(`powershell -NoProfile -Command "${ps.replace(/"/g, '""')}"`, { encoding: 'utf8' }, (err) => {
+      if (err) {
+        console.log('[web] 提权失败（UAC 被取消？）—— 继续以非管理员模式运行（live 不可用）');
+        resolve(false);
+      } else {
+        console.log('[web] 已请求以管理员身份重新启动，请在 UAC 弹窗中确认…');
+        resolve(true);
+      }
+    });
+  });
+}
+
 export async function webMain(args: WebArgs): Promise<number> {
+  if (!isAdmin()) {
+    // 默认自动提权：curloop web 打开即是管理员（live/换号可用），无需手动开管理员终端
+    const relaunched = await relaunchAsAdmin(args);
+    if (relaunched) {
+      console.log(`[web] 本进程退出，管理员实例将在端口 ${args.port ?? DEFAULT_PORT} 启动`);
+      return 0;
+    }
+  }
   const port = Number(args.port ?? DEFAULT_PORT);
   const cfg = cfgFor(args.project || process.cwd());
   if (args.mode) cfg.mode = String(args.mode);
