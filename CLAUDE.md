@@ -96,7 +96,7 @@ Cursor is never "driven" natively — **everything goes through CDP**: launch Cu
   - `run_state.py` — `runstate/snapshot.json`（断点续跑）+ `events.jsonl`（追加日志，超 5MB 轮转 `.1`…`.3`；`observer.load_events` 会合并轮转段）。`load` 与 TODO.md 合并：文件已勾选→done、用户反勾选→重新 pending、追加新未勾选项、**skipped→pending**（避免假完成）。写路径用 `file_lock.FileLock`。
   - **runstate 按 (项目绝对路径, git 分支) 隔离**：key = `runstate/<slug>@<分支>_<路径短哈希>/`（`config.project_state_key`；`current_branch` 读 `.git/HEAD` 零子进程；detached→短 hash、linked worktree→gitdir 解析、非 git→default）。`config.project_state_dir` 与 `observer._state_key` 必须同源（都调 `project_state_key`）。
   - `config.py` / `config.default.json` — typed runtime config (paths, detection keywords, timeouts, retry budget). **npm 分发后配置外置**：仓库内 `config.default.json` 是干净默认（不含任何本机路径），`Config.load()` 按 默认配置 → `%APPDATA%\curloop\config.json`（用户覆盖）→ `--config FILE`（最高优先）合并；Cursor.exe 与换号助手 exe 未配置时自动检测（`_detect_cursor_exe`/`_detect_assistant_exe`）。`--project` CLI override sets the module global `PROJECT_OVERRIDE` before load. runstate 默认外置到 `%APPDATA%\curloop\runstate`。
-  - `assistant_probe.py` — elevated probe: relaunch 换号助手 with `--remote-debugging-port=9355` and dump its DOM to `runstate/assistant_probe.json`. `win_ocr.ps1` — Windows OCR helper used for screenshot text extraction.
+  - `assistant_probe.py` — elevated probe: relaunch 换号助手 with `--remote-debugging-port=9355` and dump its DOM to `%APPDATA%\curloop\runstate\assistant_probe.json`。exe 路径自动检测（Desktop/Downloads），可用 `--exe <路径>` 覆盖，无硬编码用户名。`win_ocr.ps1` — Windows OCR helper used for screenshot text extraction.
 
 ## Key invariants & gotchas
 

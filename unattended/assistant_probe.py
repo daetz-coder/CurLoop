@@ -14,9 +14,28 @@ from pathlib import Path
 
 import websockets.sync.client as ws_client  # noqa: E402
 
+from .config import USER_CONFIG_DIR, _detect_assistant_exe
+
 PORT = 9355
-EXE = Path(r"C:\Users\ASUS\Desktop\CursorLoginAssistant-836.exe")
-OUT = Path(__file__).resolve().parent / "runstate" / "assistant_probe.json"
+# 输出写到外置 runstate（%APPDATA%\curloop\runstate），不写包内目录
+OUT = USER_CONFIG_DIR / "runstate" / "assistant_probe.json"
+
+
+def _resolve_exe(argv: list[str] | None = None) -> Path:
+    """换号助手 exe：--exe 参数优先，否则自动检测（Desktop/Downloads），不做用户名硬编码。"""
+    args = argv or sys.argv[1:]
+    for i, a in enumerate(args):
+        if a == "--exe" and i + 1 < len(args):
+            return Path(args[i + 1])
+    found = _detect_assistant_exe()
+    if not found:
+        print(
+            "未找到 CursorLoginAssistant-*.exe（已扫描 Desktop/Downloads），"
+            "请用 --exe <路径> 指定",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    return Path(found)
 
 
 def http_json(url: str, timeout: float = 3.0):
@@ -25,11 +44,11 @@ def http_json(url: str, timeout: float = 3.0):
         return json.loads(resp.read().decode("utf-8"))
 
 
-def kill_assistant() -> None:
-    ps = r"""
-Get-CimInstance Win32_Process -Filter "Name = 'CursorLoginAssistant-836.exe'" | ForEach-Object {
-  try { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue } catch {}
-}
+def kill_assistant(exe_name: str) -> None:
+    ps = rf"""
+Get-CimInstance Win32_Process -Filter "Name = '{exe_name}'" | ForEach-Object {{
+  try {{ Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }} catch {{}}
+}}
 """
     subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, errors="replace", check=False)
     time.sleep(2)
@@ -60,11 +79,12 @@ DUMP_JS = r"""
 
 
 def main() -> int:
+    exe = _resolve_exe(sys.argv[1:])
     report = {"ok": False, "launched_pid": None, "cdp": None, "pages": [], "error": None}
     try:
-        kill_assistant()
+        kill_assistant(exe.name)
         proc = subprocess.Popen(
-            [str(EXE), f"--remote-debugging-port={PORT}", "--remote-allow-origins=*"],
+            [str(exe), f"--remote-debugging-port={PORT}", "--remote-allow-origins=*"],
             creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
