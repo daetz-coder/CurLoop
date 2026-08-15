@@ -119,6 +119,23 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-
   min-height:34px;background:#fff;box-shadow:none;transition:border-color .15s,box-shadow .15s}
 .form-control:focus,.form-select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,122,255,.14)}
 .form-control::placeholder{color:var(--faint)}
+/* select：统一风格箭头（替换 bootstrap 默认） */
+.form-select{appearance:none;-webkit-appearance:none;padding-right:32px;cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-size:14px;background-position:right 10px center;background-repeat:no-repeat}
+/* number：隐藏原生 spinner，用自定义步进器 */
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield;appearance:textfield}
+.stepper{display:flex;align-items:stretch}
+.stepper .form-control{border-radius:0;text-align:center;min-width:0;border-left:none;border-right:none;font-variant-numeric:tabular-nums}
+.stepper .form-control:focus{z-index:0;position:relative}
+.step-btn{width:32px;flex:none;display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid var(--border-strong);background:var(--card);color:var(--muted-fg);font-size:15px;line-height:1;
+  cursor:pointer;padding:0;transition:background-color .13s,color .13s}
+.step-btn:hover{background:var(--muted);color:var(--fg)}
+.step-btn:active{background:#e9e9eb}
+.step-btn:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm)}
+.step-btn:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}
 details.panel{padding:0}
 details.panel summary{cursor:pointer;padding:10px 16px;font-weight:600;font-size:13px;list-style:none;display:flex;align-items:center;gap:8px}
 details.panel summary::-webkit-details-marker{display:none}
@@ -148,11 +165,18 @@ details.panel .panel-b{padding-top:0}
 .ev-detail{color:var(--muted-fg);font-size:12px}
 
 /* ============ charts / misc ============ */
-.chart-lg{width:100%;height:400px}
+.chart-lg{width:100%;height:380px}
 .chart-md{width:100%;height:230px}
+.chart-wrap{position:relative}
+.tl-empty{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  color:var(--muted-fg);background:var(--card);border-radius:var(--r-md);font-size:13px}
+.tl-empty svg{width:36px;height:36px;color:var(--border-strong)}
 .tl-hint{color:var(--muted-fg);font-size:12px;margin-top:8px}
-.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--muted-fg)}
-.legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.legend .lg{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);
+  border-radius:999px;padding:2.5px 11px;font-size:11px;color:var(--muted-fg);box-shadow:var(--shadow-sm)}
+.legend .lg i{width:8px;height:8px;border-radius:3px;flex:none;display:inline-block}
+.legend .lg i.cir{border-radius:50%}
 #report{font:12px/1.6 var(--mono);white-space:pre-wrap;word-break:break-all;max-height:420px;overflow:auto;
   background:#fbfbfc;border:1px solid var(--border);border-radius:var(--r-md);padding:12px;color:#3f3f46}
 .kv{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #f3f3f5;font-size:13px}
@@ -268,8 +292,16 @@ details.panel .panel-b{padding-top:0}
                 <div class="col-md-4">
                   <label class="form-label">任务 / 换号上限</label>
                   <div class="d-flex gap-2">
-                    <input class="form-control form-control-sm" id="f-tasks" type="number" min="0" placeholder="任务" title="最大任务数（0=不限）">
-                    <input class="form-control form-control-sm" id="f-switches" type="number" min="0" placeholder="换号" title="最大换号数（0=不限）">
+                    <div class="stepper flex-grow-1">
+                      <button type="button" class="step-btn" data-step="f-tasks" data-d="-1" aria-label="任务减一">−</button>
+                      <input class="form-control form-control-sm" id="f-tasks" type="number" min="0" value="0" title="最大任务数（0=不限）">
+                      <button type="button" class="step-btn" data-step="f-tasks" data-d="1" aria-label="任务加一">+</button>
+                    </div>
+                    <div class="stepper flex-grow-1">
+                      <button type="button" class="step-btn" data-step="f-switches" data-d="-1" aria-label="换号减一">−</button>
+                      <input class="form-control form-control-sm" id="f-switches" type="number" min="0" value="0" title="最大换号数（0=不限）">
+                      <button type="button" class="step-btn" data-step="f-switches" data-d="1" aria-label="换号加一">+</button>
+                    </div>
                   </div></div>
               </div>
               <div class="d-flex gap-2 flex-wrap">
@@ -337,14 +369,20 @@ details.panel .panel-b{padding-top:0}
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
               刷新图表</button></div>
           <div class="panel-b">
-            <div id="timeline" class="chart-lg"></div>
+            <div class="chart-wrap">
+              <div id="timeline" class="chart-lg"></div>
+              <div class="tl-empty" id="tl-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01"/><path d="M15 9h.01"/></svg>
+                暂无轨迹数据 —— 先运行一次，或在 runstate 中有历史数据
+              </div>
+            </div>
             <div class="legend">
-              <span><i style="background:#22c55e"></i>完成任务</span>
-              <span><i style="background:#ef4444"></i>跳过/出错</span>
-              <span><i style="background:#f59e0b"></i>进行中</span>
-              <span><i style="background:#22c55e;border-radius:50%"></i>换号成功</span>
-              <span><i style="background:#ef4444;border-radius:50%"></i>换号失败</span>
-              <span><i style="background:#3b82f6;border-radius:50%"></i>发送</span>
+              <span class="lg"><i style="background:#22c55e"></i>完成任务</span>
+              <span class="lg"><i style="background:#ef4444"></i>跳过/出错</span>
+              <span class="lg"><i style="background:#f59e0b"></i>进行中</span>
+              <span class="lg"><i class="cir" style="background:#22c55e"></i>换号成功</span>
+              <span class="lg"><i class="cir" style="background:#ef4444"></i>换号失败</span>
+              <span class="lg"><i class="cir" style="background:#3b82f6"></i>发送</span>
             </div>
             <p class="tl-hint mb-0" id="tl-hint">加载中…</p>
           </div>
@@ -640,16 +678,17 @@ function renderTimeline(evs){
   if(!window.echarts) return;
   timelineChart = timelineChart || echarts.init(el);
   const { t0, endTs, bars, markers, hasRun } = prepareTrajectory(evs);
+  // 单车道时间线：任务条按时间顺序排在第 0 行，标记在第 1 行（不再向下堆叠多行）
+  const TASK_ROW = 0, MARKER_ROW = 1;
+  $('tl-empty').style.display = hasRun ? 'none' : 'flex';
   const dur = Math.max(30, endTs - t0);
   const tMax = Math.max(t0 + 30, endTs);
-  const rows = Math.min(6, Math.max(1, bars.length));
-  const markerRow = rows;
 
   const colors = { task_done: L.green, task_skipped: L.red, task_error: L.red, task_running: L.yellow };
-  const barData = bars.map((b, i) => ({ value: [b.start, b.end, i % rows, b.text, b.kind], text: b.text, kind: b.kind }));
-  const pts = (arr, row) => arr.map(m => ({ value: [m.ts, row], name: m.name }));
-  const okPts = pts(markers.ok, markerRow), failPts = pts(markers.fail, markerRow),
-        sentPts = pts(markers.sent, markerRow), extPts = pts(markers.ext, markerRow);
+  const barData = bars.map((b) => ({ value: [b.start, b.end, TASK_ROW, b.text, b.kind], text: b.text, kind: b.kind }));
+  const pts = (arr) => arr.map(m => ({ value: [m.ts, MARKER_ROW], name: m.name }));
+  const okPts = pts(markers.ok), failPts = pts(markers.fail),
+        sentPts = pts(markers.sent), extPts = pts(markers.ext);
 
   const option = {
     animation: false,
@@ -661,7 +700,7 @@ function renderTimeline(evs){
         return '';
       }
     },
-    grid: { left: 56, right: 20, top: 16, bottom: 54 },
+    grid: { left: 48, right: 20, top: 18, bottom: 54 },
     xAxis: {
       type: 'value', min: t0, max: tMax,
       axisLabel: { formatter: (v) => ts2h(v), color: L.axisLabel },
@@ -670,7 +709,7 @@ function renderTimeline(evs){
     },
     yAxis: {
       type: 'category',
-      data: Array.from({ length: rows }, (_, i) => '任务 ' + (i + 1)).concat(['标记']),
+      data: ['任务', '标记'],
       axisLabel: { color: L.axisLabel, fontSize: 10 },
       axisLine: { show: false },
       splitLine: { show: false },
@@ -687,14 +726,14 @@ function renderTimeline(evs){
           const start = api.coord([api.value(0), row]);
           const end = api.coord([api.value(1), row]);
           const size = api.size([1, 1]);
-          const h = Math.max(8, size[1] * 0.66);
+          const h = Math.max(10, size[1] * 0.5);
           const x = Math.min(start[0], end[0]);
-          const w = Math.max(2, Math.abs(end[0] - start[0]));
+          const w = Math.max(3, Math.abs(end[0] - start[0]));
           const kind = api.value(4);
           return {
             type: 'rect',
-            shape: { x, y: start[1] - h / 2, width: w, height: h, r: 4 },
-            style: api.style({ fill: colors[kind] || L.yellow, opacity: 0.9, stroke: '#fff', lineWidth: 1 }),
+            shape: { x, y: start[1] - h / 2, width: w, height: h, r: 5 },
+            style: api.style({ fill: colors[kind] || L.yellow, opacity: 0.92, stroke: '#fff', lineWidth: 1 }),
           };
         },
         data: barData,
@@ -821,6 +860,16 @@ $('btn-ask').addEventListener('click', async () => {
 $('btn-refresh').addEventListener('click', () => { refreshStatus(); refreshEvents(); refreshCharts(); loadReport(); });
 $('btn-report').addEventListener('click', loadReport);
 $('btn-timeline-refresh').addEventListener('click', () => refreshCharts());
+
+// 数字步进器：统一样式 +/− 按钮
+document.querySelectorAll('.step-btn').forEach(b => b.addEventListener('click', () => {
+  const inp = $(b.dataset.step);
+  if(!inp) return;
+  const cur = parseInt(inp.value, 10);
+  const next = Math.max(0, (Number.isFinite(cur) ? cur : 0) + Number(b.dataset.d));
+  inp.value = String(next);
+  inp.dispatchEvent(new Event('change', { bubbles: true }));
+}));
 
 // ============ loop ============
 async function tick(){
