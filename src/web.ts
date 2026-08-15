@@ -378,7 +378,17 @@ export async function webMain(args: WebArgs): Promise<number> {
     if (activeChild) {
       console.log('[web] 正在优雅停止运行中的任务（写 STOP，最多等 3 秒）…');
       stopChild();
+      // 注意：不能在 process.exit 前只关 server —— 必须先处理子进程，
+      // 否则 4 秒后的强杀定时器永远不会执行，子进程变孤儿。
       setTimeout(() => {
+        try {
+          if (activeChild && activeChild.proc.exitCode === null) {
+            console.log('[web] 子进程未退出，强杀…');
+            activeChild.proc.kill();
+          }
+        } catch {
+          /* ignore */
+        }
         try {
           server.close();
         } catch {
@@ -386,14 +396,6 @@ export async function webMain(args: WebArgs): Promise<number> {
         }
         process.exit(0);
       }, 3500);
-      setTimeout(() => {
-        try {
-          if (activeChild) activeChild.proc.kill();
-        } catch {
-          /* ignore */
-        }
-        process.exit(0);
-      }, 4000);
     } else {
       try {
         server.close();
