@@ -2,7 +2,7 @@ import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as http from 'http';
-import { load as loadConfig, Config, USER_CONFIG } from './config';
+import { load as loadConfig, Config, USER_CONFIG, detectTemplate } from './config';
 import { buildStatus, loadEvents, loadSnapshot } from './observer';
 import { isAdmin, stopFilePath } from './loop';
 import { INIT_GOAL, INIT_TODO } from './cli';
@@ -155,6 +155,38 @@ let currentCfg: Config | null = null;
 function getCfg(): Config {
   if (!currentCfg) currentCfg = cfgFor(process.cwd());
   return currentCfg;
+}
+
+/** 判断某路径是否被用户显式配置过（只看用户配置文件，默认配置不算）。 */
+function pathKeyConfigured(section: string, key: string): boolean {
+  try {
+    if (!fs.existsSync(USER_CONFIG)) return false;
+    const data = JSON.parse(fs.readFileSync(USER_CONFIG, 'utf-8')) as Record<string, unknown>;
+    const sec = data[section];
+    return Boolean(sec && typeof sec === 'object' && (sec as Record<string, unknown>)[key] !== undefined);
+  } catch {
+    return false;
+  }
+}
+
+/** 生成路径检测报告：未配置的项自动检测（每次实时重跑）。 */
+function detectReport(cfg: Config): Record<string, unknown> {
+  const item = (label: string, key: string, value: string, userSet: boolean): Record<string, unknown> => ({
+    label,
+    key,
+    value,
+    found: Boolean(value) && fs.existsSync(value),
+    source: userSet ? '已配置' : '自动检测',
+  });
+  const items = [
+    item('Cursor 可执行文件', 'cursor.exe', cfg.cursor.exe, pathKeyConfigured('cursor', 'exe')),
+    item('Cursor 配置目录', 'cursor.profile', cfg.cursor.profile, pathKeyConfigured('cursor', 'profile')),
+    item('换号助手', 'login_assistant.exe', cfg.loginAssistant.exe, pathKeyConfigured('login_assistant', 'exe')),
+    item('刷新模板图片', 'login_assistant.refresh_template', cfg.loginAssistant.refreshTemplate || detectTemplate('refresh_cursor') || '', pathKeyConfigured('login_assistant', 'refresh_template')),
+    item('确认模板图片', 'login_assistant.confirm_template', cfg.loginAssistant.confirmTemplate || detectTemplate('confirm_ok') || '', pathKeyConfigured('login_assistant', 'confirm_template')),
+  ];
+  const foundCount = items.filter((i) => i['found']).length;
+  return { ok: true, items, found: foundCount, total: items.length };
 }
 
 /** 更新用户配置：把分节参数合并进 %APPDATA%\curloop\config.json 并热重载。 */
@@ -452,6 +484,53 @@ function router(): http.RequestListener {
         const sr = await cursor.sendPrompt(askCfg, prompt, true);
         logLine(`[web] /api/ask -> ${sr['ok'] ? '已发送' : '失败: ' + String(sr['error'] ?? JSON.stringify(sr['type'] ?? ''))}`);
         sendJson(res, sr['ok'] ? 200 : 500, { ok: Boolean(sr['ok']), detail: sr });
+        return;
+      }
+      if (req.method === 'GET' && url === '/api/detect') {
+        // 配置路径检测报告：先重载配置（重新自动检测 Cursor/换号助手/模板），再输出
+        currentCfg = cfgFor(getCfg().projectDir);
+        sendJson(res, 200, detectReport(getCfg()));
+        return;
+      }
+      if (req.method === 'POST' && url === '/api/detect') {
+        // 保存用户填写的路径（记住）：空值 = 清除该项恢复自动检测
+        const body = await readJsonBody(req);
+        try {
+          let merged: Record<string, unknown> = {};
+          if (fs.existsSync(USER_CONFIG)) {
+            try {
+              merged = JSON.parse(fs.readFileSync(USER_CONFIG, 'utf-8')) as Record<string, unknown>;
+            } catch {
+              merged = {};
+            }
+          }
+          const setSec = (sec: string, key: string, v: unknown): void => {
+            const section = (merged[sec] as Record<string, unknown>) || {};
+            section[key] = v;
+            merged[sec] = section;
+          };
+          const delSec = (sec: string, key: string): void => {
+            const section = (merged[sec] as Record<string, unknown>) || {};
+            delete section[key];
+            merged[sec] = section;
+          };
+          const setOrDel = (sec: string, key: string, v: unknown): void => {
+            if (v === undefined || v === null || String(v).trim() === '') delSec(sec, key);
+            else setSec(sec, key, String(v).trim());
+          };
+          setOrDel('cursor', 'exe', body['cursorExe']);
+          setOrDel('login_assistant', 'exe', body['assistantExe']);
+          setOrDel('login_assistant', 'refresh_template', body['refreshTemplate']);
+          setOrDel('login_assistant', 'confirm_template', body['confirmTemplate']);
+          fs.mkdirSync(path.dirname(USER_CONFIG), { recursive: true });
+          fs.writeFileSync(USER_CONFIG, JSON.stringify(merged, null, 2), 'utf-8');
+          const project = getCfg().projectDir;
+          currentCfg = cfgFor(project);
+          logLine(`[web] /api/detect 已保存路径到 ${USER_CONFIG} 并热重载`);
+          sendJson(res, 200, detectReport(getCfg()));
+        } catch (e) {
+          sendJson(res, 500, { ok: false, error: String(e) });
+        }
         return;
       }
       if (req.method === 'POST' && url === '/api/config') {

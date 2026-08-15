@@ -256,6 +256,8 @@ details.panel .panel-b{padding-top:0}
       <button class="nav-item" data-view="report">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>报告</button>
       <div class="nav-sep"></div>
+      <button class="nav-item" data-view="config">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>配置</button>
       <button class="nav-item" data-view="help">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>帮助</button>
     </nav>
@@ -529,6 +531,74 @@ details.panel .panel-b{padding-top:0}
         </div>
       </section>
 
+      <!-- ============ 配置 ============ -->
+      <section class="view" id="view-config">
+        <div class="panel">
+          <div class="panel-h"><span class="t">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            配置路径检测</span>
+            <span class="badge text-bg-secondary" id="detect-summary">—</span></div>
+          <div class="panel-b">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="cfg-field">
+                  <label class="form-label">Cursor 可执行文件</label>
+                  <div class="d-flex gap-2">
+                    <input class="form-control form-control-sm" id="c-cursor" placeholder="自动检测中…">
+                    <span class="badge" id="c-cursor-st" style="flex:none">…</span>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="cfg-field">
+                  <label class="form-label">Cursor 配置目录（profile）</label>
+                  <div class="d-flex gap-2">
+                    <input class="form-control form-control-sm" id="c-profile" readonly>
+                    <span class="badge" id="c-profile-st" style="flex:none">…</span>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="cfg-field">
+                  <label class="form-label">换号助手（CursorLoginAssistant-*.exe）</label>
+                  <div class="d-flex gap-2">
+                    <input class="form-control form-control-sm" id="c-assistant" placeholder="自动检测桌面/下载…">
+                    <span class="badge" id="c-assistant-st" style="flex:none">…</span>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="cfg-field">
+                  <label class="form-label">刷新模板图片（refresh_cursor.png）</label>
+                  <div class="d-flex gap-2">
+                    <input class="form-control form-control-sm" id="c-refresh" placeholder="自动检测桌面/下载…">
+                    <span class="badge" id="c-refresh-st" style="flex:none">…</span>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="cfg-field">
+                  <label class="form-label">确认模板图片（confirm_ok.png）</label>
+                  <div class="d-flex gap-2">
+                    <input class="form-control form-control-sm" id="c-confirm" placeholder="自动检测桌面/下载…">
+                    <span class="badge" id="c-confirm-st" style="flex:none">…</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-2 flex-wrap mt-3">
+              <button type="button" class="btn btn-primary" id="btn-detect-save">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+                保存路径（记住）</button>
+              <button type="button" class="btn btn-outline" id="btn-detect-rescan">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                重新自动检测</button>
+              <span class="text-secondary" style="font-size:11.5px">未配置的路径会自动检测；手动填写后点「保存」会被记住（清空某项 = 恢复自动检测）</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- ============ 帮助 ============ -->
       <section class="view" id="view-help">
         <div class="panel mb-3">
@@ -627,7 +697,7 @@ function setConn(up){
 }
 
 // ============ 视图切换（Refactoring UI：一屏一焦点） ============
-const VIEW_TITLES = { overview:'总览', console:'控制台', timeline:'轨迹', queue:'队列', events:'事件', report:'报告', help:'帮助' };
+const VIEW_TITLES = { overview:'总览', console:'控制台', timeline:'轨迹', queue:'队列', events:'事件', report:'报告', config:'配置', help:'帮助' };
 function switchView(name){
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === name));
@@ -636,6 +706,7 @@ function switchView(name){
   if(name === 'timeline') refreshCharts();
   if(name === 'report') loadReport();
   if(name === 'queue') loadGoal();
+  if(name === 'config') loadDetect();
   if(timelineChart) timelineChart.resize();
   if(activityChart) activityChart.resize();
 }
@@ -993,6 +1064,69 @@ $('browse-select').addEventListener('click', () => {
   $('browse-modal').classList.remove('show');
   $('f-project').value = browsePath;
   checkProject();
+});
+
+// ============ 配置路径检测 ============
+const DETECT_FIELDS = [
+  { key: 'cursor.exe', input: 'c-cursor', st: 'c-cursor-st', editable: true },
+  { key: 'cursor.profile', input: 'c-profile', st: 'c-profile-st', editable: false },
+  { key: 'login_assistant.exe', input: 'c-assistant', st: 'c-assistant-st', editable: true },
+  { key: 'login_assistant.refresh_template', input: 'c-refresh', st: 'c-refresh-st', editable: true },
+  { key: 'login_assistant.confirm_template', input: 'c-confirm', st: 'c-confirm-st', editable: true },
+];
+
+function applyDetect(d){
+  if(!d || !d.items) return;
+  for(const it of d.items){
+    const f = DETECT_FIELDS.find(x => x.key === it.key);
+    if(!f) continue;
+    const inp = $(f.input), st = $(f.st);
+    if(!inp || !st) continue;
+    inp.value = it.value || '';
+    if(!f.editable) inp.readOnly = true;
+    const stCls = it.found ? 'text-bg-success' : 'text-bg-danger';
+    const stTxt = (it.found ? '✓ 已找到' : '✗ 未找到') + ' · ' + (it.source || '自动检测');
+    st.textContent = stTxt;
+    st.className = 'badge ' + stCls;
+    st.title = it.value || '';
+  }
+  $('detect-summary').textContent = d.found + ' / ' + d.total + ' 项就绪';
+  $('detect-summary').className = 'badge ' + (d.found === d.total ? 'text-bg-success' : 'text-bg-warning');
+}
+
+async function loadDetect(){
+  const d = await api('/api/detect');
+  if(d.ok) applyDetect(d);
+}
+
+$('btn-detect-rescan').addEventListener('click', () => {
+  // 重新自动检测：清空用户输入再拉取（未配置项会重新扫描）
+  loadDetect();
+  const div = document.createElement('div');
+  div.textContent = '[web] 已重新自动检测路径';
+  div.style.color = L.green;
+  $('console').appendChild(div);
+});
+
+$('btn-detect-save').addEventListener('click', async () => {
+  const body = {
+    cursorExe: $('c-cursor').value.trim(),
+    assistantExe: $('c-assistant').value.trim(),
+    refreshTemplate: $('c-refresh').value.trim(),
+    confirmTemplate: $('c-confirm').value.trim(),
+  };
+  const r = await api('/api/detect', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  const div = document.createElement('div');
+  if(r.ok){
+    applyDetect(r);
+    div.textContent = '[web] 路径已保存并记住（下次运行自动使用）';
+    div.style.color = L.green;
+  } else {
+    div.textContent = '[web] 保存失败: ' + (r.error || '');
+    div.style.color = L.red;
+  }
+  $('console').appendChild(div);
+  refreshStatus();
 });
 
 // ============ controls ============

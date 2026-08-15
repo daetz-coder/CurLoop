@@ -94,7 +94,7 @@ function num(d: Record<string, unknown>, key: string, def: number): number {
   return Number.isFinite(n) ? n : def;
 }
 
-function detectCursorExe(): string | null {
+export function detectCursorExe(): string | null {
   const pf = process.env.PROGRAMFILES || path.join('C:', 'Program Files');
   const la = process.env.LOCALAPPDATA || '';
   const candidates = [
@@ -104,6 +104,28 @@ function detectCursorExe(): string | null {
   ];
   for (const p of candidates) {
     if (fs.existsSync(p)) return p;
+  }
+  return null;
+}
+
+/** 自动检测换号助手模板图片（refresh_cursor / confirm_ok）：桌面 + 下载目录。 */
+export function detectTemplate(name: 'refresh_cursor' | 'confirm_ok'): string | null {
+  for (const d of [path.join(os.homedir(), 'Desktop'), path.join(os.homedir(), 'Downloads')]) {
+    let hits: string[] = [];
+    try {
+      if (fs.existsSync(d)) {
+        hits = fs
+          .readdirSync(d)
+          .filter((f) => new RegExp(`^${name}.*\\.png$`, 'i').test(f))
+          .map((f) => path.join(d, f));
+      }
+    } catch {
+      hits = [];
+    }
+    if (hits.length) {
+      hits.sort();
+      return hits[hits.length - 1];
+    }
   }
   return null;
 }
