@@ -4,22 +4,34 @@ Parses markdown checkboxes (`- [ ]`, `- [x]`, `- [X]`, `- [-]`), supports CRLF,
 indentation and bullets `-`/`*`/`+`. Generates the prompt fed to Cursor and
 flips a finished item back to `[x]` by normalized text match (not frozen line
 number), preserving original line endings.
+
+`[-]` is treated as cancelled (done=True, not queued). Duplicate normalized
+texts are skipped with a stderr warning.
 """
 
 from __future__ import annotations
 
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+
+from .file_lock import FileLock
 
 CHECKBOX_RE = re.compile(
     r"^(?P<indent>\s*)(?P<bullet>[-*+])\s+\[(?P<state>[ xX\-])\]\s+(?P<text>.+?)\s*$"
 )
 
+EnsureDoneResult = Literal["changed", "already", "missing"]
+
 
 def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().lower()
+
+
+def _todo_lock_path(todo_file: Path) -> Path:
+    return todo_file.with_name(todo_file.name + ".lock")
 
 
 @dataclass
@@ -79,7 +91,11 @@ class TodoTask:
 
 
 def parse_all(todo_file: Path) -> list[TodoTask]:
-    """Parse every checkbox in TODO.md (checked and unchecked), file order."""
+    """Parse every checkbox in TODO.md (checked and unchecked), file order.
+
+    `[x]`/`[X]`/`[-]` → done (cancelled `[-]` is not queued). Duplicate
+    normalized texts keep the first occurrence and warn on stderr.
+    """
     if not todo_file.exists():
         return []
     text = todo_file.read_text(encoding="utf-8")
@@ -94,46 +110,65 @@ def parse_all(todo_file: Path) -> list[TodoTask]:
         task_text = m.group("text").strip()
         norm = _norm(task_text)
         if norm in seen:
+            print(
+                f"[warn] TODO 重复文案已跳过（保留首次）: {task_text[:60]}",
+                file=sys.stderr,
+            )
             continue
         seen.add(norm)
+        state = m.group("state").lower()
         tasks.append(
             TodoTask(
                 text=task_text,
                 line=i,
                 indent=m.group("indent"),
                 bullet=m.group("bullet"),
-                done=m.group("state").lower() == "x",
+                done=state in ("x", "-"),  # [-] = cancelled
                 index=len(tasks),
             )
         )
     return tasks
 
 
-def mark_done(todo_file: Path, text: str) -> bool:
-    """Flip the first unchecked checkbox whose normalized text matches.
+def ensure_done(todo_file: Path, text: str) -> EnsureDoneResult:
+    """Ensure the matching checkbox is `[x]`.
 
-    Matches by whitespace-collapsed lowercase text (not frozen line number),
-    so Agent inserts/deletes above the item do not mark the wrong row.
-    Reads/writes bytes so CRLF and trailing-newline formatting are preserved
-    (Path.read_text would apply universal-newline translation).
+    Returns:
+      - ``changed``: flipped an unchecked row to ``[x]``
+      - ``already``: already ``[x]`` or cancelled ``[-]``
+      - ``missing``: no matching row — appends ``- [x] text`` so snapshot/TODO
+        stay aligned (avoids uncheck-requeue treating it as still open)
     """
-    if not todo_file.exists():
-        return False
     target = _norm(text)
     if not target:
-        return False
-    raw = todo_file.read_bytes()
-    crlf = b"\r\n" in raw
-    body = raw.decode("utf-8")
-    lines = body.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-    for i, raw_line in enumerate(lines):
-        m = CHECKBOX_RE.match(raw_line)
-        if not m or m.group("state").lower() == "x":
-            continue
-        if _norm(m.group("text")) != target:
-            continue
-        lines[i] = f"{m.group('indent')}{m.group('bullet')} [x] {m.group('text')}"
-        sep = "\r\n" if crlf else "\n"
-        todo_file.write_bytes(sep.join(lines).encode("utf-8"))
-        return True
-    return False
+        return "missing"
+    clean = text.strip()
+    todo_file.parent.mkdir(parents=True, exist_ok=True)
+    with FileLock(_todo_lock_path(todo_file)):
+        if not todo_file.exists():
+            todo_file.write_bytes(f"- [x] {clean}\n".encode("utf-8"))
+            return "missing"
+        raw = todo_file.read_bytes()
+        crlf = b"\r\n" in raw
+        sep = b"\r\n" if crlf else b"\n"
+        body = raw.decode("utf-8")
+        lines = body.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+        for i, raw_line in enumerate(lines):
+            m = CHECKBOX_RE.match(raw_line)
+            if not m or _norm(m.group("text")) != target:
+                continue
+            state = m.group("state").lower()
+            if state in ("x", "-"):
+                return "already"
+            lines[i] = f"{m.group('indent')}{m.group('bullet')} [x] {m.group('text')}"
+            todo_file.write_bytes(("\r\n" if crlf else "\n").join(lines).encode("utf-8"))
+            return "changed"
+        # No match: append done checkbox.
+        prefix = b"" if (not raw or raw.endswith(b"\n")) else sep
+        todo_file.write_bytes(raw + prefix + f"- [x] {clean}".encode("utf-8") + sep)
+        return "missing"
+
+
+def mark_done(todo_file: Path, text: str) -> bool:
+    """Flip unchecked checkbox to `[x]`. True if changed (not already/missing)."""
+    return ensure_done(todo_file, text) == "changed"

@@ -26,7 +26,7 @@ from .config import Config
 from .detection import CompletionTracker, REPLY_JS, build_limit_js, build_logout_js
 from .login_assistant import refresh_account
 from .run_state import RunState
-from .todo_queue import TodoTask, mark_done, parse_all
+from .todo_queue import TodoTask, ensure_done, parse_all
 
 
 # ------------------------------------------------------------------- CLIs ----
@@ -132,12 +132,29 @@ def _skip(state: RunState, task: TodoTask, reason: str) -> str:
     return "skipped"
 
 
+def _switch_report_summary(rep: dict) -> dict:
+    """精简换号助手报告，避免整包 steps/标题列表撑爆 events.jsonl。"""
+    steps_out: list[dict] = []
+    for s in rep.get("steps") or []:
+        if not isinstance(s, dict):
+            continue
+        slim = {k: s[k] for k in ("step", "ok", "reason", "error") if k in s}
+        steps_out.append(slim)
+    out: dict = {"ok": rep.get("ok"), "steps": steps_out}
+    if rep.get("error"):
+        out["error"] = rep.get("error")
+    return out
+
+
 def _do_switch(cfg: Config, state: RunState, task: TodoTask) -> bool:
     old = cursor_ctl.auth_fp(cfg)
     state.log("switch_start", task=task.text[:40], old_fp=old)
     cursor_ctl.kill_all_cursor()
     rep = refresh_account(cfg, dry_run=False)
-    state.log("switch_click", report=json.dumps(rep, ensure_ascii=False, default=str))
+    state.log(
+        "switch_click",
+        report=json.dumps(_switch_report_summary(rep), ensure_ascii=False, default=str),
+    )
     ok, info = cursor_ctl.wait_token_change(cfg, old, cfg.timeouts.switch_token_timeout_s)
     state.switches_used += 1
     state.save()
@@ -559,11 +576,14 @@ def run_task(cfg: Config, state: RunState, task: TodoTask, sim: dict[str, bool])
 
         outcome, detail = _wait_reply(cfg, state, task, sim, prompt)
         if outcome == "done":
-            if not mark_done(cfg.todo_file, task.text):
-                print(f"[warn] mark_done 未匹配到 TODO 行: {task.text[:60]}")
+            result = ensure_done(cfg.todo_file, task.text)
+            if result == "missing":
+                print(f"[warn] TODO 无匹配行，已追加 [x] 防重跑: {task.text[:60]}")
             task.status = "done"
             task.done = True
-            state.log("task_done", task=task.text[:60], detail=detail)
+            state.log("task_done", task=task.text[:60], detail=detail, todo_mark=result)
+            # 先落盘：_reload_queue 从磁盘 snapshot 合并，否则 mark 失败时会重跑。
+            state.save()
             return "done"
         if outcome == "relaunch":
             task.retries += 1
