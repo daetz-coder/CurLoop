@@ -6,8 +6,10 @@ expansion. CLI overrides (project dir, mode) are applied by loop.py after load.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -38,6 +40,26 @@ def _expand(s: str) -> str:
 # current_branch 缓存：.git/HEAD 内容基本不变，按 (path, mtime_ns) 命中，
 # 避免周期状态块/status/watch 反复读文件。
 _branch_cache: dict[str, tuple[int, str]] = {}
+
+
+def _slug(name: str) -> str:
+    s = re.sub(r'[\\/:*?"<>|]', "_", name).replace(" ", "_")
+    return s or "default"
+
+
+def project_state_key(project_dir: Path) -> str:
+    """runstate 目录名：<项目名>@<分支>_<路径短哈希>。
+
+    哈希取自 resolve() 后的绝对路径，避免同名不同路径的项目共用队列/预算。
+    config.project_state_dir 与 observer 必须都调用本函数，保持同源。
+    """
+    p = Path(project_dir)
+    try:
+        resolved = str(p.resolve())
+    except Exception:  # noqa: BLE001
+        resolved = str(p)
+    digest = hashlib.sha1(resolved.encode("utf-8")).hexdigest()[:8]
+    return _slug(f"{p.name or 'default'}@{current_branch(p)}_{digest}")
 
 
 def current_branch(project_dir: Path) -> str:
@@ -272,14 +294,12 @@ class Config:
 
     @property
     def project_state_dir(self) -> Path:
-        """Per-(project, git branch) runstate dir: runstate/<slug>@<branch>/.
+        """Per-(project, git branch, path) runstate dir.
 
-        Isolates snapshot/events per branch so switching branches never mixes
-        queues, switch budgets, stats or event timelines. Non-git projects use
-        the `default` branch key (keeps the legacy directory name).
+        Key = <name>@<branch>_<pathHash>/ via project_state_key so same-name
+        folders at different paths never share queues or switch budgets.
         """
-        key = f"{self.project_dir.name}@{current_branch(self.project_dir)}"
-        return self.state_dir / self._slug(key)
+        return self.state_dir / project_state_key(self.project_dir)
 
     @property
     def snapshot_file(self) -> Path:
@@ -289,12 +309,13 @@ class Config:
     def event_log_file(self) -> Path:
         return self.project_state_dir / "events.jsonl"
 
+    @property
+    def state_lock_file(self) -> Path:
+        return self.project_state_dir / ".lock"
+
     @staticmethod
     def _slug(name: str) -> str:
-        import re
-
-        s = re.sub(r'[\\/:*?"<>|]', "_", name).replace(" ", "_")
-        return s or "default"
+        return _slug(name)
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "Config":
@@ -325,7 +346,7 @@ class Config:
         """合并加载配置：仓库默认 config.default.json → %APPDATA% 用户配置 → --config 显式指定。
 
         - 默认配置不含任何本机路径（Cursor/换号助手路径由自动检测补齐）；
-        - 用户配置覆盖默认（分发后写 %APPDATA%\\cursor-harness\\config.json）；
+        - 用户配置覆盖默认（分发后写 %APPDATA%\\curloop\\config.json）；
         - `--config FILE`（与默认不同时）优先级最高；
         - CLI 覆盖（--project / --mode）在 loop.py 里 load 之后应用。
         """

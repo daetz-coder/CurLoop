@@ -8,21 +8,22 @@ import time
 from pathlib import Path
 from typing import Any
 
+from .file_lock import FileLock
 from .todo_queue import TodoTask, parse_all
 
 # events.jsonl 超过此大小则轮转（当前 → .1 → .2 …），避免长跑无限膨胀。
 _MAX_EVENT_LOG_BYTES = 5 * 1024 * 1024  # 5 MiB
-_EVENT_LOG_KEEP = 3
+EVENT_LOG_KEEP = 3
 
 
 def _rotate_event_log(path: Path) -> None:
-    """若当前日志过大，轮转为 path.1 … path.N（覆盖最旧）。"""
+    """若当前日志过大，轮转为 path.1 … path.N（覆盖最旧）。调用方须已持锁。"""
     try:
         if not path.exists() or path.stat().st_size < _MAX_EVENT_LOG_BYTES:
             return
     except OSError:
         return
-    for i in range(_EVENT_LOG_KEEP, 0, -1):
+    for i in range(EVENT_LOG_KEEP, 0, -1):
         src = path if i == 1 else path.with_name(f"{path.name}.{i - 1}")
         dst = path.with_name(f"{path.name}.{i}")
         try:
@@ -36,6 +37,18 @@ def _rotate_event_log(path: Path) -> None:
             return
 
 
+def event_log_paths(path: Path, keep: int = EVENT_LOG_KEEP) -> list[Path]:
+    """轮转段从旧到新：.N … .1，再当前文件。"""
+    paths: list[Path] = []
+    for i in range(keep, 0, -1):
+        rot = path.with_name(f"{path.name}.{i}")
+        if rot.exists():
+            paths.append(rot)
+    if path.exists():
+        paths.append(path)
+    return paths
+
+
 class RunState:
     def __init__(self, snapshot_file: Path, event_log_file: Path, queue: list[TodoTask]):
         self.snapshot_file = snapshot_file
@@ -47,17 +60,24 @@ class RunState:
         self.cdp_browser: str | None = None
         self.started_at = time.time()
 
+    @property
+    def _lock_path(self) -> Path:
+        return self.snapshot_file.parent / ".lock"
+
     # ------------------------------------------------------------------ log
     def log(self, event: str, **fields: Any) -> None:
         row = {"ts": time.time(), "event": event, **fields}
         self.event_log_file.parent.mkdir(parents=True, exist_ok=True)
         try:
-            _rotate_event_log(self.event_log_file)
-            with self.event_log_file.open("a", encoding="utf-8") as fh:
-                fh.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
+            with FileLock(self._lock_path):
+                _rotate_event_log(self.event_log_file)
+                with self.event_log_file.open("a", encoding="utf-8") as fh:
+                    fh.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
             self.events_written += 1
         except OSError as e:  # disk full / perms — never lose the run silently
             print(f"[warn] event log append failed: {e}", file=sys.stderr)
+        except TimeoutError as e:
+            print(f"[warn] event log lock failed: {e}", file=sys.stderr)
         line = " ".join(f"{k}={v}" for k, v in fields.items())
         print(f"[{event}] {line}")
 
@@ -74,8 +94,16 @@ class RunState:
         }
         self.snapshot_file.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.snapshot_file.with_name(self.snapshot_file.name + ".tmp")
-        tmp.write_text(json.dumps(snap, ensure_ascii=False, indent=2), encoding="utf-8")
-        tmp.replace(self.snapshot_file)
+        payload = json.dumps(snap, ensure_ascii=False, indent=2)
+        try:
+            with FileLock(self._lock_path):
+                tmp.write_text(payload, encoding="utf-8")
+                tmp.replace(self.snapshot_file)
+        except TimeoutError as e:
+            print(f"[warn] snapshot lock failed: {e}", file=sys.stderr)
+            # 仍尽力落盘，避免丢进度
+            tmp.write_text(payload, encoding="utf-8")
+            tmp.replace(self.snapshot_file)
 
     def next_task(self) -> TodoTask | None:
         """First pending task (in-flight 'running' is resumed as pending)."""
@@ -101,22 +129,32 @@ class RunState:
             return st
 
         try:
-            snap = json.loads(snapshot_file.read_text(encoding="utf-8"))
+            with FileLock(snapshot_file.parent / ".lock", timeout_s=10.0):
+                snap = json.loads(snapshot_file.read_text(encoding="utf-8"))
+        except TimeoutError:
+            try:
+                snap = json.loads(snapshot_file.read_text(encoding="utf-8"))
+            except Exception:
+                st.queue = fresh_unchecked
+                return st
         except Exception:
             st.queue = fresh_unchecked
             return st
 
         snap_tasks = [TodoTask.from_dict(x) for x in snap.get("queue", [])]
 
-        # Mark snapshot tasks done if they are now checked in TODO.md
-        # (completed by us earlier, or checked manually while we were away).
+        # Sync snapshot ↔ TODO.md: checked → done; user uncheck → pending again.
         for t in snap_tasks:
-            if t.status != "done" and t.normalized() in fresh_done_norms:
+            norm = t.normalized()
+            if t.status != "done" and norm in fresh_done_norms:
                 t.status = "done"
                 t.done = True
+            elif t.status == "done" and norm in fresh_unchecked_norms:
+                t.status = "pending"
+                t.done = False
             # Refresh line/indent/bullet/index from current TODO.md so
             # mark_done-by-text still works even if Agent inserted lines above.
-            f = fresh_by_norm.get(t.normalized())
+            f = fresh_by_norm.get(norm)
             if f is not None:
                 t.line = f.line
                 t.indent = f.indent

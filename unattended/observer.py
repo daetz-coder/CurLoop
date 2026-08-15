@@ -12,21 +12,15 @@ import json
 import time
 from pathlib import Path
 
-from .config import USER_CONFIG_DIR, current_branch
+from .config import USER_CONFIG_DIR, project_state_key
+from .run_state import EVENT_LOG_KEEP, event_log_paths
 
-_cache = {"mtime": 0.0, "events": [], "path": ""}
-
-
-def _slug(name: str) -> str:
-    import re
-
-    return re.sub(r'[\\/:*?"<>|]', "_", name).replace(" ", "_") or "default"
+_cache = {"mtime_key": "", "events": [], "path": ""}
 
 
 def _state_key(project: str) -> str:
-    """runstate 目录 key：<项目名>@<分支名>（与 config.project_state_dir 一致）。"""
-    p = Path(project)
-    return _slug(f"{p.name}@{current_branch(p)}")
+    """与 config.project_state_dir / project_state_key 同源。"""
+    return project_state_key(Path(project))
 
 
 def runstate_root(state_dir: Path | None = None) -> Path:
@@ -35,7 +29,7 @@ def runstate_root(state_dir: Path | None = None) -> Path:
 
 
 def events_path(project: str | None = None, state_dir: Path | None = None) -> Path:
-    """events.jsonl for a (project, branch) pair; None = most recently active."""
+    """events.jsonl for a (project, branch, path) pair; None = most recently active."""
     root = runstate_root(state_dir)
     if project:
         return root / _state_key(project) / "events.jsonl"
@@ -57,20 +51,37 @@ def snapshot_path(project: str | None = None, state_dir: Path | None = None) -> 
     return events_path(project, state_dir=state_dir).with_name("snapshot.json")
 
 
+def _mtime_key(paths: list[Path]) -> str:
+    parts: list[str] = []
+    for p in paths:
+        try:
+            parts.append(f"{p}:{p.stat().st_mtime_ns}:{p.stat().st_size}")
+        except OSError:
+            parts.append(f"{p}:missing")
+    return "|".join(parts)
+
+
 def load_events(project: str | None = None, state_dir: Path | None = None) -> list[dict]:
-    """Read events.jsonl (per project), cached by mtime."""
+    """Read events.jsonl + 轮转段 (.1…N)，按时间从旧到新合并；按各文件 mtime 缓存。"""
     p = events_path(project, state_dir=state_dir)
+    paths = event_log_paths(p, keep=EVENT_LOG_KEEP)
+    if not paths:
+        return _cache["events"] if _cache["path"] == str(p) else []
     try:
-        mt = p.stat().st_mtime
-        if mt != _cache["mtime"] or str(p) != _cache["path"]:
+        key = _mtime_key(paths)
+        if key != _cache["mtime_key"] or str(p) != _cache["path"]:
             evs: list[dict] = []
-            with p.open(encoding="utf-8") as fh:
-                for line in fh:
-                    try:
-                        evs.append(json.loads(line))
-                    except Exception:
-                        pass
-            _cache.update(mtime=mt, events=evs, path=str(p))
+            for fp in paths:
+                try:
+                    with fp.open(encoding="utf-8") as fh:
+                        for line in fh:
+                            try:
+                                evs.append(json.loads(line))
+                            except Exception:
+                                pass
+                except OSError:
+                    pass
+            _cache.update(mtime_key=key, events=evs, path=str(p))
         return _cache["events"]
     except Exception:
         return _cache["events"]
@@ -103,7 +114,7 @@ def _todo_aligned_queue(project: str | None, snap: dict, state_dir: Path | None 
 
     快照里的任务若在当前 TODO.md 已勾选（[x]），标记 done——否则状态块显示
     pending/running 而真实内存队列在 load() 里已把它们过滤（误导：看起来有
-    任务可跑，实际队列空）。读最近 run_start 事件的 todo 字段定位 TODO.md；
+    任务可跑，实际队列空）。读**最近一次** run_start 事件的 todo 字段定位 TODO.md；
     无 todo 信息或文件缺失时原样返回快照队列。
     """
     raw = snap.get("queue", [])
@@ -112,8 +123,7 @@ def _todo_aligned_queue(project: str | None, snap: dict, state_dir: Path | None 
     todo: Path | None = None
     for e in load_events(project, state_dir=state_dir):
         if e.get("event") == "run_start" and e.get("todo"):
-            todo = Path(e["todo"])
-            break
+            todo = Path(e["todo"])  # 保留最后一次
     if not todo or not todo.exists():
         return [
             {
