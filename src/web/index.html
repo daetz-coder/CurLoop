@@ -98,10 +98,6 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-
 .stat-label{color:var(--muted-fg);font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-bottom:3px}
 .stat-num{font-size:24px;font-weight:650;letter-spacing:-.03em;line-height:1.15;font-variant-numeric:tabular-nums}
 .stat-sub{color:var(--muted-fg);font-size:11px;margin-top:2px}
-.cfg-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
-.cfg-chips .chip{background:var(--card);border:1px solid var(--border);border-radius:999px;padding:3px 11px;
-  font-size:11px;color:var(--muted-fg);box-shadow:var(--shadow-sm)}
-.cfg-chips .chip b{color:var(--fg);font-weight:600;font-family:var(--mono);font-size:10.5px}
 
 /* ============ panels ============ */
 .panel{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-sm)}
@@ -225,7 +221,6 @@ details.panel .panel-b{padding-top:0}
     <header class="topbar">
       <div>
         <h1 id="view-title">总览</h1>
-        <div class="sub" id="topbar-sub"></div>
       </div>
       <div class="top-actions">
         <div class="status-chip"><span class="dot" id="dot-run"></span><span id="h-run">未运行</span></div>
@@ -239,7 +234,6 @@ details.panel .panel-b{padding-top:0}
       <!-- ============ 总览 ============ -->
       <section class="view active" id="view-overview">
         <div class="cards-row" id="cards"></div>
-        <div class="cfg-chips" id="cfg-chips"></div>
         <div class="panel">
           <div class="panel-h"><span class="t">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-6 4 3 5-8"/></svg>
@@ -311,6 +305,62 @@ details.panel .panel-b{padding-top:0}
                       发送</button>
                   </div>
                 </details>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel mb-3">
+          <div class="panel-h"><span class="t">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            运行参数 · 保存到配置文件（%APPDATA%\curloop\config.json）</span></div>
+          <div class="panel-b">
+            <div class="row g-2 mb-2">
+              <div class="col-md-3"><label class="form-label">模式</label>
+                <select class="form-select form-select-sm" id="p-mode">
+                  <option value="dry-run">dry-run（只读预览）</option>
+                  <option value="live">live（无人值守）</option>
+                  <option value="limit-sim">limit-sim（换号链路测试）</option>
+                </select></div>
+              <div class="col-md-3">
+                <label class="form-label">任务上限（0=不限）</label>
+                <div class="stepper">
+                  <button type="button" class="step-btn" data-step="p-tasks" data-d="-1" aria-label="任务上限减一">−</button>
+                  <input class="form-control form-control-sm" id="p-tasks" type="number" min="0" value="0">
+                  <button type="button" class="step-btn" data-step="p-tasks" data-d="1" aria-label="任务上限加一">+</button>
+                </div></div>
+              <div class="col-md-3">
+                <label class="form-label">换号上限（0=不限）</label>
+                <div class="stepper">
+                  <button type="button" class="step-btn" data-step="p-switches" data-d="-1" aria-label="换号上限减一">−</button>
+                  <input class="form-control form-control-sm" id="p-switches" type="number" min="0" value="0">
+                  <button type="button" class="step-btn" data-step="p-switches" data-d="1" aria-label="换号上限加一">+</button>
+                </div></div>
+              <div class="col-md-3">
+                <label class="form-label">线程轮转（0=关）</label>
+                <div class="stepper">
+                  <button type="button" class="step-btn" data-step="p-rotate" data-d="-1" aria-label="轮转减一">−</button>
+                  <input class="form-control form-control-sm" id="p-rotate" type="number" min="0" value="0" title="每 N 个任务开新对话（长对话压缩）">
+                  <button type="button" class="step-btn" data-step="p-rotate" data-d="1" aria-label="轮转加一">+</button>
+                </div></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col-md-3">
+                <label class="form-label">进度检查点（0=关）</label>
+                <div class="stepper">
+                  <button type="button" class="step-btn" data-step="p-checkpoint" data-d="-1" aria-label="检查点减一">−</button>
+                  <input class="form-control form-control-sm" id="p-checkpoint" type="number" min="0" value="0" title="每 N 个任务让 Agent 写 HARNESS_STATE.md">
+                  <button type="button" class="step-btn" data-step="p-checkpoint" data-d="1" aria-label="检查点加一">+</button>
+                </div></div>
+              <div class="col-md-3"><label class="form-label">最终验收</label>
+                <select class="form-select form-select-sm" id="p-verify">
+                  <option value="false">关</option>
+                  <option value="true">开</option>
+                </select></div>
+              <div class="col-md-6 d-flex align-items-end">
+                <button type="button" class="btn btn-outline" id="btn-save-config">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+                  保存参数</button>
+                <span class="text-secondary ms-2" style="font-size:11.5px">下次运行生效 · 运行中的任务不受影响</span>
               </div>
             </div>
           </div>
@@ -483,9 +533,17 @@ document.querySelectorAll('.nav-item').forEach(n => n.addEventListener('click', 
 async function refreshStatus(){
   const d = await api('/api/status');
   if(!d.ok) return;
-  $('h-project').textContent = d.project + ' · ' + d.stateDir;
+  // 项目路径只在侧边栏底部显示一处
+  $('h-project').textContent = d.project;
   $('h-project').title = d.project + '\n' + d.stateDir;
-  $('topbar-sub').textContent = d.project;
+  // 运行参数面板（交互式，读取当前配置）
+  const cf = d.config || {};
+  if ($('p-mode')) $('p-mode').value = cf.mode || 'dry-run';
+  if ($('p-tasks')) $('p-tasks').value = cf.maxTasks || 0;
+  if ($('p-switches')) $('p-switches').value = cf.maxSwitches || 0;
+  if ($('p-rotate')) $('p-rotate').value = cf.rotateEveryTasks || 0;
+  if ($('p-checkpoint')) $('p-checkpoint').value = cf.checkpointEveryTasks || 0;
+  if ($('p-verify')) $('p-verify').value = cf.finalVerify ? 'true' : 'false';
   // 运行状态（顶栏状态点）
   let runTxt, runColor;
   if (d.running) {
@@ -520,17 +578,6 @@ async function refreshStatus(){
     '<div class="overflow-hidden"><div class="stat-label">'+c.k+'</div><div class="stat-num">'+c.v+'</div>' +
     '<div class="stat-sub">'+esc(c.sub)+'</div></div></div>'
   ).join('');
-
-  const cf = d.config || {};
-  const chips = [
-    ['模式', cf.mode || '—'],
-    ['任务上限', cf.maxTasks ? cf.maxTasks : '不限'],
-    ['换号上限', cf.maxSwitches ? cf.maxSwitches : '不限'],
-    ['线程轮转', cf.rotateEveryTasks ? '每 ' + cf.rotateEveryTasks + ' 任务' : '关'],
-    ['进度检查点', cf.checkpointEveryTasks ? '每 ' + cf.checkpointEveryTasks + ' 任务' : '关'],
-    ['最终验收', cf.finalVerify ? '开' : '关'],
-  ];
-  $('cfg-chips').innerHTML = chips.map(c => '<span class="chip">'+c[0]+' <b>'+esc(c[1])+'</b></span>').join('');
 
   const q = d.status.queue;
   $('queue-count').textContent = q.length + ' 项';
@@ -812,6 +859,24 @@ $('btn-ask').addEventListener('click', async () => {
 $('btn-refresh').addEventListener('click', () => { refreshStatus(); refreshEvents(); refreshCharts(); loadReport(); });
 $('btn-report').addEventListener('click', loadReport);
 $('btn-timeline-refresh').addEventListener('click', () => refreshCharts());
+
+// 保存运行参数（持久化到 %APPDATA%\curloop\config.json 并热重载）
+$('btn-save-config').addEventListener('click', async () => {
+  const body = {
+    mode: $('p-mode').value,
+    maxTasks: Number($('p-tasks').value) || 0,
+    maxSwitches: Number($('p-switches').value) || 0,
+    rotateEveryTasks: Number($('p-rotate').value) || 0,
+    checkpointEveryTasks: Number($('p-checkpoint').value) || 0,
+    finalVerify: $('p-verify').value === 'true',
+  };
+  const r = await api('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  const div = document.createElement('div');
+  div.textContent = r.ok ? '[web] 参数已保存（下次运行生效）' : '[web] 保存失败: ' + (r.error || '');
+  div.style.color = r.ok ? L.green : L.red;
+  $('console').appendChild(div);
+  refreshStatus();
+});
 
 // 数字步进器：统一样式 +/− 按钮
 document.querySelectorAll('.step-btn').forEach(b => b.addEventListener('click', () => {

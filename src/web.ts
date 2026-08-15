@@ -2,7 +2,7 @@ import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as http from 'http';
-import { load as loadConfig, Config } from './config';
+import { load as loadConfig, Config, USER_CONFIG } from './config';
 import { buildStatus, loadEvents, loadSnapshot } from './observer';
 import { isAdmin, stopFilePath } from './loop';
 import { INIT_GOAL, INIT_TODO } from './cli';
@@ -149,6 +149,54 @@ function cfgFor(cwd: string): Config {
   return cfg;
 }
 
+// 服务器运行期配置：/api/config 可改（写入 %APPDATA%\curloop\config.json 并热重载）
+let currentCfg: Config | null = null;
+function getCfg(): Config {
+  if (!currentCfg) currentCfg = cfgFor(process.cwd());
+  return currentCfg;
+}
+
+/** 更新用户配置：把分节参数合并进 %APPDATA%\curloop\config.json 并热重载。 */
+function applyConfigUpdate(updates: {
+  mode?: string;
+  maxTasks?: number;
+  maxSwitches?: number;
+  rotateEveryTasks?: number;
+  checkpointEveryTasks?: number;
+  finalVerify?: boolean;
+}): { ok: boolean; error?: string; config?: Record<string, unknown> } {
+  try {
+    let merged: Record<string, unknown> = {};
+    if (fs.existsSync(USER_CONFIG)) {
+      try {
+        merged = JSON.parse(fs.readFileSync(USER_CONFIG, 'utf-8')) as Record<string, unknown>;
+      } catch {
+        merged = {};
+      }
+    }
+    const setSec = (sec: string, key: string, v: unknown): void => {
+      const section = (merged[sec] as Record<string, unknown>) || {};
+      section[key] = v;
+      merged[sec] = section;
+    };
+    if (updates.mode !== undefined) merged['mode'] = updates.mode;
+    if (updates.maxTasks !== undefined) setSec('control', 'max_tasks', updates.maxTasks);
+    if (updates.maxSwitches !== undefined) setSec('retry', 'max_total_account_switches_per_run', updates.maxSwitches);
+    if (updates.rotateEveryTasks !== undefined) setSec('thread', 'rotate_every_tasks', updates.rotateEveryTasks);
+    if (updates.checkpointEveryTasks !== undefined) setSec('prompt', 'checkpoint_every_tasks', updates.checkpointEveryTasks);
+    if (updates.finalVerify !== undefined) setSec('prompt', 'final_verify', updates.finalVerify);
+    fs.mkdirSync(path.dirname(USER_CONFIG), { recursive: true });
+    fs.writeFileSync(USER_CONFIG, JSON.stringify(merged, null, 2), 'utf-8');
+    // 热重载：保留当前项目目录
+    const project = getCfg().projectDir;
+    currentCfg = cfgFor(project);
+    logLine(`[web] /api/config 已保存到 ${USER_CONFIG} 并热重载`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
 // ------------------------------------------------------------------- routes ----
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -193,8 +241,9 @@ function serveStatic(res: http.ServerResponse, relRaw: string): boolean {
   }
 }
 
-function router(cfg: Config): http.RequestListener {
+function router(): http.RequestListener {
   return async (req, res) => {
+    const cfg = getCfg();
     const url = (req.url || '/').split('?')[0];
     try {
       // 静态资源：/ 与 /index.html → 页面；/vendor/* 与其余文件 → 文件服务
@@ -336,6 +385,31 @@ function router(cfg: Config): http.RequestListener {
         sendJson(res, sr['ok'] ? 200 : 500, { ok: Boolean(sr['ok']), detail: sr });
         return;
       }
+      if (req.method === 'POST' && url === '/api/config') {
+        // 运行参数持久化：写入 %APPDATA%\curloop\config.json 并热重载
+        const body = await readJsonBody(req);
+        const updates: {
+          mode?: string;
+          maxTasks?: number;
+          maxSwitches?: number;
+          rotateEveryTasks?: number;
+          checkpointEveryTasks?: number;
+          finalVerify?: boolean;
+        } = {};
+        if (body['mode'] !== undefined) updates.mode = String(body['mode']);
+        if (body['maxTasks'] !== undefined) updates.maxTasks = Math.max(0, Math.trunc(Number(body['maxTasks'])));
+        if (body['maxSwitches'] !== undefined) updates.maxSwitches = Math.max(0, Math.trunc(Number(body['maxSwitches'])));
+        if (body['rotateEveryTasks'] !== undefined) updates.rotateEveryTasks = Math.max(0, Math.trunc(Number(body['rotateEveryTasks'])));
+        if (body['checkpointEveryTasks'] !== undefined) updates.checkpointEveryTasks = Math.max(0, Math.trunc(Number(body['checkpointEveryTasks'])));
+        if (body['finalVerify'] !== undefined) updates.finalVerify = Boolean(body['finalVerify']);
+        const r = applyConfigUpdate(updates);
+        if (!r.ok) {
+          sendJson(res, 500, { ok: false, error: r.error });
+          return;
+        }
+        sendJson(res, 200, { ok: true, config: getCfg() });
+        return;
+      }
       if (req.method === 'POST' && url === '/api/init') {
         const body = await readJsonBody(req);
         const project = body['project'] ? path.resolve(String(body['project'])) : cfg.projectDir;
@@ -385,6 +459,7 @@ export async function webMain(args: WebArgs): Promise<number> {
   const port = Number(args.port ?? DEFAULT_PORT);
   const cfg = cfgFor(args.project || process.cwd());
   if (args.mode) cfg.mode = String(args.mode);
+  currentCfg = cfg; // 路由读取该引用；/api/config 保存后热重载
 
   console.log(`[web] curloop Web UI 数据源: project=${cfg.projectDir} stateDir=${cfg.stateDir}`);
   console.log(`[web] 管理员: ${isAdmin() ? '是（live/limit-sim 可用）' : '否（仅 dry-run 与只读操作；live/limit-sim 请用管理员终端启动本服务）'}`);
@@ -392,7 +467,7 @@ export async function webMain(args: WebArgs): Promise<number> {
 
   // 端口被占时自动顺延（EADDRINUSE → +1，最多 10 次）
   let chosenPort = port;
-  const server = http.createServer(router(cfg));
+  const server = http.createServer(router());
   const listen = (p: number): Promise<number> =>
     new Promise((resolve, reject) => {
       server.once('error', (e) => {

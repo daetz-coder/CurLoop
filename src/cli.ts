@@ -626,7 +626,7 @@ export async function main(argv: string[]): Promise<number> {
   const args = minimist(argv, {
     string: ['mode', 'project'],
     boolean: ['no-plan', 'no-expand', 'yes', 'final-goal'],
-    default: { mode: 'live', project: process.cwd() },
+    default: { project: process.cwd() },
   });
   const cmd = args._[0] || args.cmd;
   const cli: CliArgs = {
