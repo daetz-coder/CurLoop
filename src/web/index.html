@@ -4,122 +4,143 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>curloop · CursorHarness</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1117'/%3E%3Cpath d='M7 9l4 7-4 7M13 9l4 7-4 7' stroke='%2339c5cf' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M19 9l6 14' stroke='%2358a6ff' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23090b0e'/%3E%3Cpath d='M7 9l4 7-4 7M13 9l4 7-4 7' stroke='%2334c9cf' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M19 9l6 14' stroke='%23007aff' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="vendor/tabler/tabler.min.css">
 <style>
-/* ============ design tokens ============ */
+/* ============ shadcn/ui × Apple HIG design tokens ============ */
 :root{
-  --ink:#0f172a; --ink-2:#334155; --ink-3:#64748b; --ink-4:#94a3b8;
-  --line:#e2e8f0; --line-2:#cbd5e1; --bg-soft:#f8fafc; --bg-panel:#ffffff;
-  --blue:#2563eb; --blue-deep:#1d4ed8; --blue-soft:#eff6ff;
-  --red:#dc2626; --red-soft:#fef2f2; --red-border:#fecaca;
-  --green:#16a34a; --amber:#b45309; --cyan:#0891b2;
-  --r-lg:14px; --r-md:10px; --r-sm:8px;
-  --shadow-sm:0 1px 2px rgba(15,23,42,.05),0 1px 3px rgba(15,23,42,.07);
-  --shadow-md:0 6px 18px -6px rgba(15,23,42,.12),0 2px 6px rgba(15,23,42,.06);
-  --font:"Inter","Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
-  --mono:ui-monospace,Consolas,"Cascadia Mono","Courier New",monospace;
+  --background:#fafafa; --foreground:#18181b;
+  --card:#ffffff; --card-foreground:#18181b;
+  --muted:#f4f4f5; --muted-foreground:#71717a;
+  --border:#e4e4e7; --border-strong:#d4d4d8; --input:#e4e4e7;
+  --primary:#18181b; --primary-foreground:#fafafa; --primary-hover:#27272a;
+  --secondary:#f4f4f5; --secondary-foreground:#18181b;
+  --destructive:#ef4444; --destructive-foreground:#fff;
+  --ring:#18181b;
+  --blue:#007aff; --green:#22c55e; --red:#ef4444; --amber:#f59e0b; --cyan:#06b6d4; --purple:#8b5cf6;
+  --r-sm:6px; --r-md:8px; --r-lg:12px; --r-xl:16px;
+  --shadow-sm:0 1px 2px 0 rgb(0 0 0 / .04);
+  --shadow-md:0 8px 24px -6px rgb(0 0 0 / .1), 0 2px 8px -2px rgb(0 0 0 / .05);
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,SF Mono,Consolas,"Cascadia Mono",monospace;
 }
 html,body{height:100%}
-body{background:linear-gradient(180deg,#f6f8fb 0%,#eef2f7 100%) fixed;color:var(--ink-2);font-family:var(--font);-webkit-font-smoothing:antialiased}
+body{background:var(--background);color:var(--card-foreground);font-family:var(--font);
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-size:14px;letter-spacing:.01em}
 .page{min-height:100%}
-.navbar{background:rgba(255,255,255,.88);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);box-shadow:0 1px 0 rgba(15,23,42,.02)}
-.navbar-brand{font-weight:800;letter-spacing:.2px;color:var(--ink)}
-.brand-grad{background:linear-gradient(90deg,#0891b2,#2563eb);-webkit-background-clip:text;background-clip:text;color:transparent}
-.page-title{font-size:17px;font-weight:700;color:var(--ink);margin:0;letter-spacing:-.2px}
-.page-title small{display:block;color:var(--ink-4);font-weight:400;font-size:11px;font-family:var(--mono);margin-top:2px}
 
-/* ============ buttons ============ */
-.btn{height:34px;border-radius:var(--r-md);font-size:13px;font-weight:500;letter-spacing:.1px;
-  display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 14px;
-  border:1px solid transparent;transition:all .16s ease;cursor:pointer;white-space:nowrap;box-shadow:none}
-.btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(37,99,235,.2)}
-.btn:disabled{opacity:.45;pointer-events:none}
+/* ============ navbar（Apple 毛玻璃） ============ */
+.navbar{background:rgba(255,255,255,.78);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);
+  border-bottom:1px solid var(--border)}
+.navbar-brand{font-weight:700;letter-spacing:-.01em;color:var(--foreground)}
+.brand-grad{background:linear-gradient(90deg,#0ea5b7,#2563eb);-webkit-background-clip:text;background-clip:text;color:transparent}
+.page-title{font-size:18px;font-weight:600;letter-spacing:-.02em;color:var(--foreground);margin:0}
+.page-title small{display:block;color:var(--muted-foreground);font-weight:400;font-size:11px;font-family:var(--mono);margin-top:3px;letter-spacing:0}
+
+/* ============ buttons（shadcn/ui 语言） ============ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 14px;
+  border-radius:var(--r-sm);font-size:13px;font-weight:500;line-height:1;border:1px solid transparent;
+  transition:background-color .15s ease,border-color .15s ease,color .15s ease,box-shadow .15s ease;
+  cursor:pointer;white-space:nowrap;box-shadow:none;text-decoration:none}
 .btn svg{width:15px;height:15px;flex:none;stroke-width:2}
-.btn-primary{background:linear-gradient(180deg,#2f6ff0,#2461e0);color:#fff;box-shadow:0 2px 6px rgba(37,99,235,.28),0 1px 2px rgba(15,23,42,.1)}
-.btn-primary:hover{background:linear-gradient(180deg,#3a7af2,#2a66e6);box-shadow:0 4px 12px rgba(37,99,235,.34);transform:translateY(-1px)}
-.btn-primary:active{transform:translateY(0);box-shadow:0 1px 3px rgba(37,99,235,.3)}
-.btn-danger{background:var(--red-soft);border-color:var(--red-border);color:var(--red)}
-.btn-danger:hover{background:#fee2e2;border-color:#fca5a5}
-.btn-danger svg{color:var(--red)}
-.btn-light{border-color:var(--line-2);background:var(--bg-panel);color:var(--ink-2)}
-.btn-light:hover{border-color:var(--blue);color:var(--blue-deep);background:#fbfdff}
-.btn-light:active{background:var(--blue-soft)}
-.btn-ghost{border-color:transparent;background:transparent;color:var(--ink-3)}
-.btn-ghost:hover{background:var(--bg-soft);color:var(--ink)}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 2px var(--background),0 0 0 4px var(--ring)}
+.btn:disabled{opacity:.45;pointer-events:none}
+.btn-sm{height:30px;padding:0 11px;font-size:12px;border-radius:var(--r-sm)}
+.btn-primary{background:var(--primary);color:var(--primary-foreground)}
+.btn-primary:hover{background:var(--primary-hover)}
+.btn-primary:active{background:#3f3f46}
+.btn-light{background:var(--card);border-color:var(--border);color:var(--foreground)}
+.btn-light:hover{background:var(--muted);border-color:var(--border-strong)}
+.btn-light:active{background:#e9e9eb}
+.btn-danger{background:transparent;border-color:#fecaca;color:#dc2626}
+.btn-danger:hover{background:#fef2f2;border-color:#fca5a5}
+.btn-danger svg{color:#dc2626}
+.btn-ghost{background:transparent;color:var(--muted-foreground)}
+.btn-ghost:hover{background:var(--muted);color:var(--foreground)}
+.btn:active{transform:translateY(0)}
 
-/* ============ stat cards ============ */
-.stat-card{border-radius:var(--r-lg);border:1px solid var(--line);background:var(--bg-panel);
-  box-shadow:var(--shadow-sm);transition:box-shadow .18s ease,transform .18s ease}
+/* ============ badges（subtle） ============ */
+.badge{font-weight:500;letter-spacing:.02em;border:1px solid transparent;padding:3px 10px;border-radius:999px;font-size:11px}
+.text-bg-success{background:#f0fdf4;color:#15803d;border-color:#bbf7d0}
+.text-bg-danger{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
+.text-bg-warning{background:#fffbeb;color:#b45309;border-color:#fde68a}
+.text-bg-info{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
+.text-bg-secondary{background:var(--muted);color:#52525b;border-color:var(--border)}
+.text-bg-purple{background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe}
+
+/* ============ stat cards（Apple 大数字 + shadcn 卡片） ============ */
+.stat-card{border-radius:var(--r-xl);border:1px solid var(--border);background:var(--card);
+  box-shadow:var(--shadow-sm);transition:box-shadow .2s ease,transform .2s ease}
 .stat-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
-.stat-card .card-body{padding:13px 15px}
-.stat-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none}
-.stat-icon svg{width:18px;height:18px;stroke-width:1.9}
-.tint-blue{background:var(--blue-soft);color:var(--blue)} .tint-cyan{background:#ecfeff;color:var(--cyan)}
-.tint-green{background:#f0fdf4;color:var(--green)} .tint-purple{background:#f5f3ff;color:#7c3aed}
-.tint-amber{background:#fffbeb;color:var(--amber)}
-.stat-label{color:var(--ink-4);font-size:11px;letter-spacing:.4px;margin-bottom:2px}
-.stat-num{font-size:21px;font-weight:800;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.3px}
-.stat-sub{color:var(--ink-4);font-size:10.5px;margin-top:2px}
+.stat-card .card-body{padding:16px}
+.stat-icon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:none}
+.stat-icon svg{width:17px;height:17px;stroke-width:1.9}
+.tint-blue{background:#eaf3ff;color:var(--blue)} .tint-cyan{background:#ecfeff;color:#0e7490}
+.tint-green{background:#f0fdf4;color:#16a34a} .tint-purple{background:#f5f3ff;color:#7c3aed}
+.tint-amber{background:#fffbeb;color:#b45309}
+.stat-label{color:var(--muted-foreground);font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px}
+.stat-num{font-size:23px;font-weight:650;letter-spacing:-.03em;line-height:1.15;color:var(--foreground);font-variant-numeric:tabular-nums}
+.stat-sub{color:var(--muted-foreground);font-size:11px;margin-top:2px}
 
-/* 配置摘要 */
-.cfg-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
-.cfg-chips .chip{display:inline-flex;align-items:center;gap:6px;background:var(--bg-panel);border:1px solid var(--line);
-  border-radius:999px;padding:3px 11px;font-size:11px;color:var(--ink-3);box-shadow:var(--shadow-sm)}
-.cfg-chips .chip b{color:var(--ink);font-weight:600;font-family:var(--mono);font-size:10.5px}
+/* 配置摘要 chips */
+.cfg-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.cfg-chips .chip{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);
+  border-radius:999px;padding:3px 11px;font-size:11px;color:var(--muted-foreground);box-shadow:var(--shadow-sm)}
+.cfg-chips .chip b{color:var(--foreground);font-weight:600;font-family:var(--mono);font-size:10.5px}
 
 /* ============ panels ============ */
-.card{border-radius:var(--r-lg);border:1px solid var(--line);background:var(--bg-panel);box-shadow:var(--shadow-sm)}
-.card-header{background:transparent;border-bottom:1px solid var(--line);border-radius:var(--r-lg) var(--r-lg) 0 0 !important;
-  padding:12px 16px;display:flex;align-items:center;gap:8px}
-.card-header .card-title{margin:0;font-size:13px;font-weight:600;color:var(--ink);letter-spacing:.2px;display:flex;align-items:center;gap:7px}
-.card-header .card-title svg{width:15px;height:15px;stroke-width:2;color:var(--blue)}
-.card-header .card-title .t-green{color:var(--green)} .card-header .card-title .t-purple{color:#7c3aed}
-.card-header .card-title .t-cyan{color:var(--cyan)} .card-header .card-title .t-amber{color:var(--amber)}
+.card{border-radius:var(--r-lg);border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow-sm)}
+.card-header{background:transparent;border-bottom:1px solid var(--border);border-radius:var(--r-lg) var(--r-lg) 0 0 !important;
+  padding:13px 16px;display:flex;align-items:center}
+.card-header .card-title{margin:0;font-size:13px;font-weight:600;color:var(--foreground);letter-spacing:-.01em;display:flex;align-items:center;gap:7px}
+.card-header .card-title svg{width:15px;height:15px;stroke-width:2;color:var(--muted-foreground)}
+.card-header .card-title.t-blue svg{color:var(--blue)} .card-header .card-title.t-green svg{color:var(--green)}
+.card-header .card-title.t-purple svg{color:var(--purple)} .card-header .card-title.t-cyan svg{color:var(--cyan)}
+.card-header .card-title.t-amber svg{color:var(--amber)}
 
 /* ============ forms ============ */
-.form-label{font-size:11px;color:var(--ink-3);font-weight:500;letter-spacing:.3px;margin-bottom:4px}
-.form-control,.form-select{border-radius:var(--r-sm);border-color:var(--line-2);font-size:13px;color:var(--ink);
-  min-height:34px;background-color:#fff;transition:border-color .15s,box-shadow .15s}
-.form-control:focus,.form-select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.14)}
-.form-control::placeholder{color:var(--ink-4)}
-.input-group .form-control:focus{z-index:0}
+.form-label{font-size:11px;color:var(--muted-foreground);font-weight:500;letter-spacing:.02em;margin-bottom:4px}
+.form-control,.form-select{border-radius:var(--r-sm);border-color:var(--input);font-size:13px;color:var(--foreground);
+  min-height:34px;background-color:#fff;box-shadow:none;transition:border-color .15s,box-shadow .15s}
+.form-control:focus,.form-select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,122,255,.15)}
+.form-control::placeholder{color:#a1a1aa}
 
-/* ============ terminal ============ */
-.term{background:#0f172a;border-radius:12px;overflow:hidden;box-shadow:var(--shadow-sm);border:1px solid #1e293b}
-.term-bar{display:flex;justify-content:space-between;align-items:center;background:#1a2332;
-  border-bottom:1px solid #263041;padding:6px 14px;font-size:11px;color:#94a3b8;font-family:var(--mono)}
-.term-bar .led{width:8px;height:8px;border-radius:50%;background:#475569;display:inline-block;margin-right:7px;vertical-align:-1px}
-.term-bar .led.on{background:#34d399;box-shadow:0 0 8px #34d399;animation:pulse 1.6s infinite}
+/* ============ terminal（SF mono 深色终端） ============ */
+.term{background:#0b0c0e;border-radius:12px;overflow:hidden;box-shadow:var(--shadow-sm);border:1px solid #18191c}
+.term-bar{display:flex;justify-content:space-between;align-items:center;background:#131417;
+  border-bottom:1px solid #1f2126;padding:6px 14px;font-size:11px;color:#8e8e93;font-family:var(--mono)}
+.term-bar .led{width:8px;height:8px;border-radius:50%;background:#3a3a3c;display:inline-block;margin-right:7px;vertical-align:-1px}
+.term-bar .led.on{background:#30d158;box-shadow:0 0 8px rgba(48,209,88,.5);animation:pulse 1.6s infinite}
 @keyframes pulse{50%{opacity:.4}}
-.term-out{height:290px;overflow-y:auto;padding:10px 14px;font:12px/1.65 var(--mono);white-space:pre-wrap;word-break:break-all;color:#cbd5e1;background:#0f172a}
-.term-out::-webkit-scrollbar{width:9px}.term-out::-webkit-scrollbar-thumb{background:#334155;border-radius:4px}
+.term-out{height:290px;overflow-y:auto;padding:10px 14px;font:12px/1.65 var(--mono);white-space:pre-wrap;word-break:break-all;color:#d1d1d6;background:#0b0c0e}
+.term-out::-webkit-scrollbar{width:9px}.term-out::-webkit-scrollbar-thumb{background:#2c2c2e;border-radius:4px}
 
 /* ============ lists / tables ============ */
-.queue-item{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid #f1f5f9;font-size:13px}
+.queue-item{display:flex;align-items:center;gap:9px;padding:8px 14px;border-bottom:1px solid #f1f1f3;font-size:13px;transition:background-color .12s}
 .queue-item:last-child{border-bottom:none}
-.queue-item:hover{background:var(--bg-soft)}
+.queue-item:hover{background:var(--muted)}
 .table-vcenter td,.table-vcenter th{vertical-align:middle}
-.ev-detail{color:var(--ink-4);font-size:12px}
-.table-responsive tbody tr:hover{background:var(--bg-soft)}
-.badge{font-weight:500;letter-spacing:.2px}
+.ev-detail{color:var(--muted-foreground);font-size:12px}
+.table-responsive tbody tr{transition:background-color .1s}
+.table-responsive tbody tr:hover{background:var(--muted)}
+.table thead th{color:var(--muted-foreground);font-weight:500;font-size:11px;letter-spacing:.04em;text-transform:uppercase}
 
 #report{font:12px/1.6 var(--mono);white-space:pre-wrap;word-break:break-all;max-height:280px;overflow:auto;
-  background:var(--bg-soft);border:1px solid var(--line);border-radius:10px;padding:11px;color:var(--ink-2)}
+  background:#fbfbfc;border:1px solid var(--border);border-radius:var(--r-md);padding:11px;color:#3f3f46}
 
 .chart{width:100%;height:300px}
 .chart-sm{width:100%;height:172px}
-.tl-hint{color:var(--ink-4);font-size:12px;margin-top:6px}
-.legend{display:flex;gap:14px;flex-wrap:wrap;margin:4px 0 2px;font-size:11px;color:var(--ink-4)}
+.tl-hint{color:var(--muted-foreground);font-size:12px;margin-top:6px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin:4px 0 2px;font-size:11px;color:var(--muted-foreground)}
 .legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 
-.footer{color:var(--ink-4);font-size:12px;text-align:center;padding:16px 0;border-top:1px solid var(--line);margin-top:20px}
-details.card{padding:0;background:var(--bg-panel)}
-details.card summary{cursor:pointer;padding:9px 14px;font-weight:600;color:var(--blue);list-style:none;display:flex;align-items:center;gap:8px;font-size:13px}
+.footer{color:var(--muted-foreground);font-size:12px;text-align:center;padding:18px 0;border-top:1px solid var(--border);margin-top:22px}
+details.card{padding:0;background:var(--card)}
+details.card summary{cursor:pointer;padding:10px 14px;font-weight:600;color:var(--foreground);list-style:none;display:flex;align-items:center;gap:8px;font-size:13px}
 details.card summary::-webkit-details-marker{display:none}
-details.card summary::before{content:"";width:16px;height:16px;flex:none;background:var(--chevron,url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")) center/contain no-repeat;transition:transform .16s}
-details.card[open] summary::before{transform:rotate(180deg)}
-details.card .card-body{padding:0 14px 12px}
+details.card summary .chev{margin-left:auto;width:16px;height:16px;flex:none;transition:transform .18s}
+details.card[open] summary .chev{transform:rotate(180deg)}
+details.card .card-body{padding:0 14px 14px}
 </style>
 </head>
 <body>
@@ -127,9 +148,9 @@ details.card .card-body{padding:0 14px 12px}
   <header class="navbar navbar-expand d-print-none sticky-top">
     <div class="container-xl">
       <a class="navbar-brand" href="#">
-        <svg width="24" height="24" viewBox="0 0 32 32" fill="none" style="margin-right:8px;vertical-align:-5px"><rect width="32" height="32" rx="7" fill="#0d1117"/><path d="M7 9l4 7-4 7M13 9l4 7-4 7" stroke="#39c5cf" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 9l6 14" stroke="#58a6ff" stroke-width="2.4" stroke-linecap="round"/></svg>
+        <svg width="24" height="24" viewBox="0 0 32 32" fill="none" style="margin-right:8px;vertical-align:-5px"><rect width="32" height="32" rx="8" fill="#090b0e"/><path d="M7 9l4 7-4 7M13 9l4 7-4 7" stroke="#34c9cf" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 9l6 14" stroke="#007aff" stroke-width="2.4" stroke-linecap="round"/></svg>
         <span class="brand-grad">curloop</span>
-        <span style="font-size:11px;font-weight:400;color:var(--ink-4);margin-left:6px">CursorHarness</span>
+        <span style="font-size:11px;font-weight:400;color:var(--muted-foreground);margin-left:6px">CursorHarness</span>
       </a>
       <div class="navbar-nav flex-row align-items-center gap-2 ms-auto">
         <span class="badge text-bg-info" id="h-mode">mode —</span>
@@ -141,12 +162,12 @@ details.card .card-body{padding:0 14px 12px}
   </header>
 
   <div class="page-wrapper">
-    <div class="container-xl py-3">
+    <div class="container-xl py-4">
       <!-- page header -->
-      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
         <h1 class="page-title">无人值守 Cursor 编码循环 <small id="h-project">—</small></h1>
         <div class="d-flex gap-2">
-          <button class="btn btn-light btn-sm" id="btn-report">
+          <button class="btn btn-ghost btn-sm" id="btn-report">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
             结束报告</button>
           <button class="btn btn-ghost btn-sm" id="btn-refresh">
@@ -156,12 +177,12 @@ details.card .card-body{padding:0 14px 12px}
       </div>
 
       <!-- stat cards -->
-      <div class="row g-2 mb-2" id="cards"></div>
+      <div class="row g-3 mb-2" id="cards"></div>
       <!-- 配置摘要 -->
       <div class="cfg-chips" id="cfg-chips"></div>
 
       <!-- 控制台 + 轨迹 -->
-      <div class="row g-3 mb-3">
+      <div class="row g-4 mb-3">
         <div class="col-xl-5 col-lg-6">
           <div class="card mb-3">
             <div class="card-header"><span class="card-title">
@@ -203,7 +224,7 @@ details.card .card-body{padding:0 14px 12px}
             </div>
             <div class="card-body pt-0">
               <details class="card mb-2" id="init-box">
-                <summary>初始化项目（FinalGoal / TODO 模板）</summary>
+                <summary>初始化项目（FinalGoal / TODO 模板）<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
                 <div class="card-body">
                   <label class="form-label">最终目标（可多行；留空生成模板）</label>
                   <textarea class="form-control mb-2" id="f-goal" rows="3" placeholder="例如：用 TypeScript 完成一个 CLI 工具并发布到 npm…"></textarea>
@@ -213,7 +234,7 @@ details.card .card-body{padding:0 14px 12px}
                 </div>
               </details>
               <details class="card" id="ask-box">
-                <summary>手动向 Cursor 发送消息（人在回路 / 调试）</summary>
+                <summary>手动向 Cursor 发送消息（人在回路 / 调试）<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
                 <div class="card-body">
                   <label class="form-label">消息内容（发送到 Cursor 当前会话；需 Cursor 带 CDP 运行）</label>
                   <textarea class="form-control mb-2" id="f-ask" rows="2" placeholder="例如：现在项目进度如何？先别改代码，只回答。"></textarea>
@@ -224,7 +245,7 @@ details.card .card-body{padding:0 14px 12px}
               </details>
             </div>
             <div class="card-body pt-0">
-              <h6 class="text-secondary mb-2" style="font-size:11.5px;letter-spacing:.3px">运行输出 · 子进程实时日志</h6>
+              <h6 class="mb-2" style="font-size:11.5px;color:var(--muted-foreground);letter-spacing:.03em">运行输出 · 子进程实时日志</h6>
               <div class="term">
                 <div class="term-bar">
                   <span><span class="led" id="console-led"></span><span id="console-status">空闲</span></span>
@@ -244,12 +265,12 @@ details.card .card-body{padding:0 14px 12px}
             <div class="card-body">
               <div id="timeline" class="chart"></div>
               <div class="legend">
-                <span><i style="background:#16a34a"></i>完成任务</span>
-                <span><i style="background:#dc2626"></i>跳过/出错</span>
-                <span><i style="background:#ca8a04"></i>进行中</span>
-                <span><i style="background:#16a34a;border-radius:50%"></i>换号成功</span>
-                <span><i style="background:#dc2626;border-radius:50%"></i>换号失败</span>
-                <span><i style="background:#2563eb;border-radius:50%"></i>发送</span>
+                <span><i style="background:#22c55e"></i>完成任务</span>
+                <span><i style="background:#ef4444"></i>跳过/出错</span>
+                <span><i style="background:#f59e0b"></i>进行中</span>
+                <span><i style="background:#22c55e;border-radius:50%"></i>换号成功</span>
+                <span><i style="background:#ef4444;border-radius:50%"></i>换号失败</span>
+                <span><i style="background:#3b82f6;border-radius:50%"></i>发送</span>
               </div>
               <p class="tl-hint mb-0" id="tl-hint">加载中…</p>
             </div>
@@ -267,7 +288,7 @@ details.card .card-body{padding:0 14px 12px}
       </div>
 
       <!-- 队列 / 账号 / 事件 -->
-      <div class="row g-3 mb-3">
+      <div class="row g-4 mb-3">
         <div class="col-lg-4">
           <div class="card h-100">
             <div class="card-header"><span class="card-title t-purple">
@@ -300,7 +321,7 @@ details.card .card-body{padding:0 14px 12px}
       </div>
 
       <!-- 报告 + 说明 -->
-      <div class="row g-3">
+      <div class="row g-4">
         <div class="col-lg-6">
           <div class="card h-100">
             <div class="card-header"><span class="card-title">
@@ -314,7 +335,7 @@ details.card .card-body{padding:0 14px 12px}
             <div class="card-header"><span class="card-title">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
               说明</span></div>
-            <div class="card-body" style="font-size:12.5px;color:var(--ink-3)">
+            <div class="card-body" style="font-size:12.5px;color:var(--muted-foreground)">
               <p class="mb-1">· 运行/规划经子进程执行，日志实时回传，刷新页面不中断。</p>
               <p class="mb-1">· 停止 = 写入 <code>STOP</code> 文件优雅收尾（退出码 2）；删除文件可取消。</p>
               <p class="mb-1">· live / limit-sim 需管理员：用管理员终端运行 <code>curloop web</code>。</p>
@@ -338,11 +359,11 @@ const $ = (id) => document.getElementById(id);
 const state = { since: 0, eventsKey: '', lastReportTs: 0, connDown: false };
 let timelineChart = null, activityChart = null;
 
-// 亮色图表配色
+// 亮色图表配色（zinc / iOS 语义色）
 const L = {
-  axisLabel: '#94a3b8', axisLine: '#cbd5e1', splitLine: '#eef2f7',
-  zoomBg: '#f8fafc', zoomBorder: '#cbd5e1',
-  green: '#16a34a', red: '#dc2626', yellow: '#ca8a04', blue: '#2563eb', cyan: '#0891b2', purple: '#7c3aed',
+  axisLabel: '#a1a1aa', axisLine: '#d4d4d8', splitLine: '#f0f0f1',
+  zoomBg: '#fafafa', zoomBorder: '#d4d4d8',
+  green: '#22c55e', red: '#ef4444', yellow: '#f59e0b', blue: '#3b82f6', cyan: '#06b6d4', purple: '#8b5cf6',
 };
 
 // 统计卡片图标（Feather 风格，stroke 系）
