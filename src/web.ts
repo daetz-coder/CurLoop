@@ -2,7 +2,7 @@ import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as http from 'http';
-import { load as loadConfig, Config, USER_CONFIG, detectTemplate } from './config';
+import { load as loadConfig, Config, USER_CONFIG, detectTemplate, readJsonFile } from './config';
 import { buildStatus, loadEvents } from './observer';
 import { isAdmin, stopFilePath } from './loop';
 import { INIT_GOAL, INIT_TODO } from './cli';
@@ -164,7 +164,7 @@ function getCfg(): Config {
 function pathKeyConfigured(section: string, key: string): boolean {
   try {
     if (!fs.existsSync(USER_CONFIG)) return false;
-    const data = JSON.parse(fs.readFileSync(USER_CONFIG, 'utf-8')) as Record<string, unknown>;
+    const data = readJsonFile<Record<string, unknown>>(USER_CONFIG);
     const sec = data[section];
     return Boolean(sec && typeof sec === 'object' && (sec as Record<string, unknown>)[key] !== undefined);
   } catch {
@@ -204,7 +204,7 @@ function applyConfigUpdate(updates: {
     let merged: Record<string, unknown> = {};
     if (fs.existsSync(USER_CONFIG)) {
       try {
-        merged = JSON.parse(fs.readFileSync(USER_CONFIG, 'utf-8')) as Record<string, unknown>;
+        merged = readJsonFile<Record<string, unknown>>(USER_CONFIG);
       } catch {
         merged = {};
       }
@@ -407,7 +407,7 @@ function router(): http.RequestListener {
         let report: unknown = null;
         if (fs.existsSync(rp)) {
           try {
-            report = JSON.parse(fs.readFileSync(rp, 'utf-8'));
+            report = readJsonFile<unknown>(rp);
           } catch {
             report = null;
           }
@@ -540,7 +540,7 @@ function router(): http.RequestListener {
           let merged: Record<string, unknown> = {};
           if (fs.existsSync(USER_CONFIG)) {
             try {
-              merged = JSON.parse(fs.readFileSync(USER_CONFIG, 'utf-8')) as Record<string, unknown>;
+              merged = readJsonFile<Record<string, unknown>>(USER_CONFIG);
             } catch {
               merged = {};
             }

@@ -395,6 +395,13 @@ export function fromDict(d: Record<string, unknown>): Config {
   return cfg;
 }
 
+/** 读取 JSON 文件并解析，容错 UTF-8 BOM（PowerShell/编辑器可能写入 BOM）。 */
+export function readJsonFile<T = Record<string, unknown>>(file: string): T {
+  const text = fs.readFileSync(file, 'utf-8');
+  // strip UTF-8 BOM（\uFEFF）——JSON.parse 不允许前置 BOM
+  return JSON.parse(text.replace(/^\uFEFF/, '')) as T;
+}
+
 /** 合并加载：默认配置 → %APPDATA% 用户配置 → --config 显式指定。 */
 export function load(pathArg?: string | null): Config {
   const data: Record<string, unknown> = {};
@@ -405,8 +412,7 @@ export function load(pathArg?: string | null): Config {
   for (const src of sources) {
     if (!src || !fs.existsSync(src)) continue;
     try {
-      const parsed = JSON.parse(fs.readFileSync(src, 'utf-8')) as Record<string, unknown>;
-      Object.assign(data, parsed);
+      Object.assign(data, readJsonFile(src));
     } catch (e) {
       console.error(`[config] 警告：读取 ${src} 失败：${String(e)}，已跳过`);
     }
