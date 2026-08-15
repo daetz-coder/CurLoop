@@ -10,6 +10,31 @@ from typing import Any
 
 from .todo_queue import TodoTask, parse_all
 
+# events.jsonl 超过此大小则轮转（当前 → .1 → .2 …），避免长跑无限膨胀。
+_MAX_EVENT_LOG_BYTES = 5 * 1024 * 1024  # 5 MiB
+_EVENT_LOG_KEEP = 3
+
+
+def _rotate_event_log(path: Path) -> None:
+    """若当前日志过大，轮转为 path.1 … path.N（覆盖最旧）。"""
+    try:
+        if not path.exists() or path.stat().st_size < _MAX_EVENT_LOG_BYTES:
+            return
+    except OSError:
+        return
+    for i in range(_EVENT_LOG_KEEP, 0, -1):
+        src = path if i == 1 else path.with_name(f"{path.name}.{i - 1}")
+        dst = path.with_name(f"{path.name}.{i}")
+        try:
+            if not src.exists():
+                continue
+            if dst.exists():
+                dst.unlink()
+            src.replace(dst)
+        except OSError as e:
+            print(f"[warn] event log rotate failed: {e}", file=sys.stderr)
+            return
+
 
 class RunState:
     def __init__(self, snapshot_file: Path, event_log_file: Path, queue: list[TodoTask]):
@@ -27,6 +52,7 @@ class RunState:
         row = {"ts": time.time(), "event": event, **fields}
         self.event_log_file.parent.mkdir(parents=True, exist_ok=True)
         try:
+            _rotate_event_log(self.event_log_file)
             with self.event_log_file.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
             self.events_written += 1

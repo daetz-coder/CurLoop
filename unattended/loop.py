@@ -467,6 +467,29 @@ def _wait_reply(cfg: Config, state: RunState, task: TodoTask, sim: dict[str, boo
     interval = cfg.timeouts.completion_poll_interval_s
     state.log("wait_reply", task=task.text[:60])
     poll_count = 0
+    last_poll_key: tuple | None = None  # 仅状态变化时落盘 poll，避免长跑刷爆 jsonl
+
+    def _log_poll_if_changed(st: str, detail: str, r: dict) -> None:
+        nonlocal last_poll_key
+        key = (
+            st,
+            bool(r.get("limit_sample", {}).get("hard")),
+            bool(r.get("logout", {}).get("loggedOut")),
+            bool(r.get("reply", {}).get("busy")),
+            r.get("reply", {}).get("pairCount"),
+            detail[:80] if detail else "",
+        )
+        if key == last_poll_key:
+            return
+        last_poll_key = key
+        state.log(
+            "poll", state=st, detail=detail, hits=sorted(prev),
+            hard=r.get("limit_sample", {}).get("hard"),
+            loggedOut=r.get("logout", {}).get("loggedOut"),
+            busy=r.get("reply", {}).get("busy"),
+            pairCount=r.get("reply", {}).get("pairCount"),
+        )
+
     while True:
         time.sleep(interval)
         poll_count += 1
@@ -484,17 +507,11 @@ def _wait_reply(cfg: Config, state: RunState, task: TodoTask, sim: dict[str, boo
         if cfg.mode == "limit-sim" and not sim.get("forced") and st in ("waiting", "busy"):
             st, detail = "limit", "limit-sim forced (once)"
             sim["forced"] = True
-        state.log(
-            "poll", state=st, detail=detail, hits=sorted(prev),
-            hard=r.get("limit_sample", {}).get("hard"),
-            loggedOut=r.get("logout", {}).get("loggedOut"),
-            busy=r.get("reply", {}).get("busy"),
-            pairCount=r.get("reply", {}).get("pairCount"),
-        )
+        _log_poll_if_changed(st, detail, r)
         if st == "done":
             if _is_prompt_echo(prompt_norm, (r.get("reply") or {}).get("lastFull") or ""):
                 tracker.disqualify()
-                state.log("poll", state="waiting", detail="prompt echo, still waiting")
+                _log_poll_if_changed("waiting", "prompt echo, still waiting", r)
                 continue
             # Confirm silence: one more poll to make sure the agent is really
             # idle (no busy flag, no new message pair, no tool-card change)
@@ -504,7 +521,7 @@ def _wait_reply(cfg: Config, state: RunState, task: TodoTask, sim: dict[str, boo
             r2 = cursor_ctl.poll_reply(cfg, tracker, prev)
             if r2["state"] == "done":
                 return "done", detail
-            state.log("poll", state=r2["state"], detail=r2.get("detail", ""))
+            _log_poll_if_changed(r2["state"], r2.get("detail", ""), r2)
             continue
         if st in ("limit", "logged_out"):
             return "switch", detail
