@@ -653,7 +653,7 @@ details.panel .panel-b{padding-top:0}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
             使用须知</span></div>
           <div class="panel-b help">
-            <p class="mb-2">· <b>运行模式</b>：本界面固定「无人值守（live）」——自动执行队列、撞限制自动换号、续接直到目标完成；需要管理员——请用管理员终端运行 <code>curloop web</code>。</p>
+            <p class="mb-2">· <b>运行模式</b>：本界面固定「无人值守（live）」——自动执行队列、撞限制自动换号、续接直到目标完成；需要管理员——启动时若检测到非管理员会自动弹出 UAC 提权确认，之后以管理员运行。</p>
             <p class="mb-2">· <b>自动换号</b>：撞到用量/登录限制时自动切换账号（需在配置中指定换号助手 <code>CursorLoginAssistant-*.exe</code> 与模板图片）。</p>
             <p class="mb-2">· <b>停止</b>：写入 <code>&lt;项目&gt;/STOP</code> 文件 → loop 优雅收尾（退出码 2，watchdog 不重启）；删除文件可取消。Web 里点「■ 停止」即自动创建。</p>
             <p class="mb-2">· <b>长对话</b>：<code>线程轮转</code> 每 N 个任务开新对话并用 <code>HARNESS_STATE.md</code>（自动生成的记忆）续接；<code>进度检查点</code> 让 Agent 定期写进度小结。</p>
@@ -753,6 +753,7 @@ document.querySelectorAll('.nav-item').forEach(n => n.addEventListener('click', 
 async function refreshStatus(){
   const d = await api('/api/status');
   if(!d.ok) return;
+  serverProject = d.project; // 同步服务器当前项目（供 switchServerProject 去重）
   // 项目路径只在侧边栏底部显示一处
   $('h-project').textContent = d.project;
   $('h-project').title = d.project + '\n' + d.stateDir;
@@ -1068,14 +1069,18 @@ async function checkProject(){
   if(d.exists) switchServerProject(dir);
 }
 
-// 切换服务器当前项目（POST /api/project）并刷新各视图数据
+// 切换服务器当前项目（POST /api/project）并刷新各视图数据。
+// 仅当项目发生变化时才请求 + 刷新，避免输入过程中的无谓轮询。
+let serverProject = ''; // 服务器 currentCfg 当前项目（由 refreshStatus 同步）
 let switchingProject = false;
 async function switchServerProject(dir){
   if(switchingProject) return;
+  if(dir === serverProject) return; // 项目未变：不重复切换
   switchingProject = true;
   try {
     const r = await api('/api/project', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ dir }) });
     if(r.ok){
+      serverProject = r.project;
       // 服务器 currentCfg 已切换：刷新所有依赖项目的数据视图
       refreshStatus();
       refreshEvents();

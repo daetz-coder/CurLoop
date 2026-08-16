@@ -153,6 +153,17 @@ function cfgFor(cwd: string): Config {
   return cfg;
 }
 
+/** 若 body 指定了与当前不同的有效项目，同步 currentCfg（操作与显示一致）。 */
+function syncProjectIfNeeded(body: Record<string, unknown>): void {
+  const raw = body['project'];
+  if (raw === undefined || raw === null || String(raw).trim() === '') return;
+  const dir = path.resolve(String(raw));
+  if (dir === getCfg().projectDir) return;
+  if (!fs.existsSync(dir)) return; // 无效目录不切换（run/init 仍会按原逻辑处理）
+  currentCfg = cfgFor(dir);
+  logLine(`[web] 项目同步 -> ${dir}`);
+}
+
 // 服务器运行期配置：/api/config 可改（写入 %APPDATA%\curloop\config.json 并热重载）
 let currentCfg: Config | null = null;
 function getCfg(): Config {
@@ -458,6 +469,7 @@ function router(): http.RequestListener {
       }
       if (req.method === 'POST' && url === '/api/run') {
         const body = await readJsonBody(req);
+        syncProjectIfNeeded(body); // 操作项目与页面显示保持一致
         // 本界面只开放「无人值守」模式：固定 live（换号/续接/直到目标完成），
         // dry-run / limit-sim 仅 CLI 内部使用，不对用户开放
         const mode = 'live';
@@ -488,6 +500,7 @@ function router(): http.RequestListener {
         // 唤醒链路：若 Cursor 未运行（CDP 未就绪）→ ensureReady 自动启动并等待 DOM 就绪 → 再输入。
         // 默认只发送不等待；body.wait = true 时轮询等待回复并返回（最多 5 分钟）。
         const body = await readJsonBody(req);
+        syncProjectIfNeeded(body); // ask 的目标项目与页面显示保持一致
         const prompt = String(body['prompt'] ?? '').trim();
         if (!prompt) {
           sendJson(res, 400, { ok: false, error: 'prompt 为空' });
@@ -625,6 +638,7 @@ function router(): http.RequestListener {
       }
       if (req.method === 'POST' && url === '/api/init') {
         const body = await readJsonBody(req);
+        syncProjectIfNeeded(body); // 初始化后页面数据跟随新项目
         const project = body['project'] ? path.resolve(String(body['project'])) : cfg.projectDir;
         const force = Boolean(body['force']);
         const created: string[] = [];
