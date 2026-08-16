@@ -1064,6 +1064,27 @@ async function checkProject(){
     $('init-box').setAttribute('open', '');
   }
   $('project-status').innerHTML = chips;
+  // 目录有效时同步服务器当前项目，让队列/FinalGoal/事件显示该项目的真实数据
+  if(d.exists) switchServerProject(dir);
+}
+
+// 切换服务器当前项目（POST /api/project）并刷新各视图数据
+let switchingProject = false;
+async function switchServerProject(dir){
+  if(switchingProject) return;
+  switchingProject = true;
+  try {
+    const r = await api('/api/project', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ dir }) });
+    if(r.ok){
+      // 服务器 currentCfg 已切换：刷新所有依赖项目的数据视图
+      refreshStatus();
+      refreshEvents();
+      refreshCharts();
+      loadGoal();
+    }
+  } finally {
+    switchingProject = false;
+  }
 }
 
 let projTimer = null;

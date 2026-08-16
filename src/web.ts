@@ -386,6 +386,32 @@ function router(): http.RequestListener {
         });
         return;
       }
+      if (req.method === 'POST' && url === '/api/project') {
+        // 切换当前项目：前端在目标项目有效时调用，服务器 currentCfg 随之更新，
+        // 之后 /api/status、/api/goal、/api/events 等全部读新项目的数据。
+        const body = await readJsonBody(req);
+        const dir = body['dir'] ? path.resolve(String(body['dir'])) : cfg.projectDir;
+        if (!fs.existsSync(dir)) {
+          sendJson(res, 404, { ok: false, error: `目录不存在: ${dir}` });
+          return;
+        }
+        const next = cfgFor(dir);
+        // 保留已持久化的运行参数（currentCfg 是从 USER_CONFIG 重新 load 的，天然一致）
+        currentCfg = next;
+        logLine(`[web] 已切换项目 -> ${dir}`);
+        const goalP = path.join(dir, next.finalGoalFile);
+        const todoP = path.join(dir, next.todoPath);
+        sendJson(res, 200, {
+          ok: true,
+          project: dir,
+          exists: true,
+          hasGoal: fs.existsSync(goalP),
+          hasTodo: fs.existsSync(todoP),
+          isGit: fs.existsSync(path.join(dir, '.git')),
+          hasStateFile: fs.existsSync(path.join(dir, 'HARNESS_STATE.md')),
+        });
+        return;
+      }
       if (req.method === 'GET' && url === '/api/goal') {
         // FinalGoal.md 内容（无固定格式，前端用 Markdown 渲染）
         const p = cfg.finalGoalFilePath;
