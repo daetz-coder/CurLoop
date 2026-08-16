@@ -6,6 +6,7 @@ import * as win32 from './win32';
 import { locateTemplateOnPng } from './template';
 import { sleep } from './cdp';
 import type { Config } from './config';
+import { detectTemplate } from './config';
 
 /**
  * GUI 自动化 for 换号助手（CursorLoginAssistant-836.exe）。
@@ -88,12 +89,15 @@ export interface TemplateLocateResult {
 /**
  * 截图并定位模板。返回（映射回原始屏幕坐标的）模板位置。
  * 与 pyautogui.locateOnScreen 的轮询语义一致：截屏 + 匹配，找不到则 sleep 重试。
+ * @param keepFront 可选：每次重试截图前回调（用于把助手窗口重新置顶/前台，
+ *   对抗全屏浏览器等遮挡——TOPMOST 置顶可盖过普通全屏窗口）。
  */
 export async function locateTemplate(
   templateFile: string,
   confidence: number,
   timeoutS: number,
   poll = 1.0,
+  keepFront?: () => Promise<void>,
 ): Promise<TemplateLocateResult> {
   await win32.dpiAware();
   if (!fs.existsSync(templateFile)) {
@@ -107,6 +111,7 @@ export async function locateTemplate(
       // 多个置信度尝试（对齐 pyautogui: confidence 与 confidence-0.05 兜底）
       for (const conf of [confidence, Math.max(0.7, confidence - 0.05)]) {
         try {
+          if (keepFront) await keepFront(); // 截图前把助手窗口拉到最前（防全屏遮挡）
           await win32.capturePrimary(capFile);
           const m = locateTemplateOnPng(capFile, templateFile, 4);
           if (m.ok && m.score !== undefined && m.score >= conf - 0.02) {
@@ -187,7 +192,9 @@ async function restartAssistant(cfg: Config): Promise<Record<string, unknown>> {
   await closeAssistant(la.exe);
   await sleep(1.0);
   try {
-    cp.spawn(la.exe, [], { stdio: 'ignore', detached: true, windowsHide: true });
+    // windowsHide:false —— 换号助手是 GUI 应用，必须显示窗口（截图/点击依赖可见窗口）；
+    // windowsHide:true 会让主窗口隐藏到后台，模板匹配必然失败
+    cp.spawn(la.exe, [], { stdio: 'ignore', detached: true, windowsHide: false });
   } catch (e) {
     return { ok: false, reason: `relaunch: ${String(e)}` };
   }
@@ -216,6 +223,9 @@ export interface RefreshReport {
 export async function refreshAccount(cfg: Config, dryRun = false): Promise<RefreshReport> {
   await win32.dpiAware();
   const la = cfg.loginAssistant;
+  // 模板未配置时回退内置（dist/assets/templates）：用户无需自己截图
+  const refreshTpl = la.refreshTemplate || detectTemplate('refresh_cursor') || '';
+  const confirmTpl = la.confirmTemplate || detectTemplate('confirm_ok') || '';
   const result: RefreshReport = { ok: false, steps: [] };
   const exeName = path.basename(la.exe);
 
@@ -230,7 +240,7 @@ export async function refreshAccount(cfg: Config, dryRun = false): Promise<Refre
       return result;
     }
     try {
-      proc = cp.spawn(la.exe, [], { stdio: 'ignore', detached: true, windowsHide: true });
+      proc = cp.spawn(la.exe, [], { stdio: 'ignore', detached: true, windowsHide: false }); // GUI 必须显示窗口
       launched = true;
     } catch (e) {
       launchError = String(e);
@@ -268,6 +278,17 @@ export async function refreshAccount(cfg: Config, dryRun = false): Promise<Refre
     }
     if (!hwnd) seenTitles = await assistantLikeTitles();
   }
+  if (!hwnd && !dryRun) {
+    // 助手窗口创建有延迟（实测 15~23s），或窗口被关到托盘：重启助手并再等一轮
+    result.steps.push({ step: 'window', ok: false, reason: 'assistant window not found, relaunching' });
+    const rp = await restartAssistant(cfg);
+    result.steps.push({ step: 'relaunch', ...rp });
+    if (rp.ok) {
+      hwnd = rp['hwnd'] as number;
+    } else {
+      [hwnd, seenTitles] = await findAssistantWindow(la.exe, la.launchWaitS);
+    }
+  }
   if (!hwnd) {
     result.steps.push({
       step: 'window',
@@ -282,9 +303,24 @@ export async function refreshAccount(cfg: Config, dryRun = false): Promise<Refre
   if (!dryRun) await moveToPrimaryAndForeground(hwnd);
 
   // 3. 点 刷新Cursor
+  // keepFront：每次截图前把助手窗口移回主屏 + 置顶 + 强制前台
+  // （窗口可能被最小化到托盘/移到屏幕外 -25600 坐标，或全屏浏览器遮挡——都要拉到可见前台）
+  const keepAssistantFront = async (): Promise<void> => {
+    try {
+      const wins = await findWindowsForExe(la.exe);
+      if (!wins.length) return;
+      for (const w of wins.slice(0, 3)) await moveToPrimaryAndForeground(w);
+      await win32.foreground(wins[0]);
+      await sleep(0.25);
+    } catch {
+      /* ignore */
+    }
+  };
   let refresh: TemplateLocateResult = { ok: false, reason: 'no refresh template configured' };
-  if (la.refreshTemplate && fs.existsSync(la.refreshTemplate)) {
-    refresh = await locateTemplate(la.refreshTemplate, la.confidence, la.confirmWaitS, 0.5);
+  // 模板匹配等待：助手窗口创建有延迟（实测 15~23s）+ 界面渲染，用更长的稳定期
+  const tplWaitS = Math.max(la.confirmWaitS, la.launchWaitS + 10);
+  if (refreshTpl && fs.existsSync(refreshTpl)) {
+    refresh = await locateTemplate(refreshTpl, la.confidence, tplWaitS, 0.5, keepAssistantFront);
     if (refresh.ok && !dryRun) {
       await win32.clickAt(refresh.center![0], refresh.center![1]);
       refresh.clicked = true;
@@ -294,9 +330,9 @@ export async function refreshAccount(cfg: Config, dryRun = false): Promise<Refre
     // 窗口被隐藏到托盘/最小化：模板找不到 → 重启助手重试
     const rp = await restartAssistant(cfg);
     result.steps.push({ step: 'restart', ...rp });
-    if (rp.ok && la.refreshTemplate && fs.existsSync(la.refreshTemplate)) {
+    if (rp.ok && refreshTpl && fs.existsSync(refreshTpl)) {
       hwnd = rp['hwnd'] as number;
-      refresh = await locateTemplate(la.refreshTemplate, la.confidence, la.confirmWaitS, 0.5);
+      refresh = await locateTemplate(refreshTpl, la.confidence, tplWaitS, 0.5, keepAssistantFront);
       if (refresh.ok) {
         await win32.clickAt(refresh.center![0], refresh.center![1]);
         refresh.clicked = true;
@@ -316,8 +352,8 @@ export async function refreshAccount(cfg: Config, dryRun = false): Promise<Refre
     }
   }
   let confirm: TemplateLocateResult = { ok: false, reason: 'no confirm template configured' };
-  if (la.confirmTemplate && fs.existsSync(la.confirmTemplate)) {
-    confirm = await locateTemplate(la.confirmTemplate, la.confidence, la.confirmWaitS, 0.5);
+  if (confirmTpl && fs.existsSync(confirmTpl)) {
+    confirm = await locateTemplate(confirmTpl, la.confidence, tplWaitS, 0.5, keepAssistantFront);
     if (confirm.ok && !dryRun) {
       await win32.clickAt(confirm.center![0], confirm.center![1]);
       confirm.clicked = true;

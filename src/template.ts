@@ -114,12 +114,12 @@ function matchNcc(
           csum += tDiff[ty * tw + tx] * iv;
         }
       }
-      const iMean = sum / (tw * th);
       const iNorm = Math.sqrt(Math.max(0, sq - (sum * sum) / (tw * th)));
       if (iNorm === 0) continue;
       // CCOEFF_NORMED = sum((t-tm)*(i-im)) / (|t-tm| * |i-im|)
-      // 展开：sum(td*i) - iMean*sum(td)
-      const ccoe = (csum - iMean * tSum) / (tNorm * iNorm);
+      // 展开：分子 = sum(td*i) - iMean*sum(td)，而 sum(td)=0，故分子即 csum。
+      // （旧实现误减 iMean*tSum（tSum=Σt≠0），导致 score 越界到负值、位置被亮度污染）
+      const ccoe = csum / (tNorm * iNorm);
       if (ccoe > bestScore) {
         bestScore = ccoe;
         bestX = x;

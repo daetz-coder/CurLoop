@@ -574,7 +574,9 @@ async function waitReply(
     prev = new Set<string>((limitSample['hits'] as string[]) || []);
     let st = r['state'] as string;
     let detail = (r['detail'] as string) || '';
-    if (cfg.mode === 'limit-sim' && !sim.forced && (st === 'waiting' || st === 'busy')) {
+    // limit-sim：任务发送后的第一次轮询即强制换号（无论 busy/waiting/done，
+    // 避免 Agent 回复过快跳过强制窗口导致换号链路没测到）
+    if (cfg.mode === 'limit-sim' && !sim.forced) {
       st = 'limit';
       detail = 'limit-sim forced (once)';
       sim.forced = true;

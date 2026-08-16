@@ -108,6 +108,60 @@ export async function clickAt(x: number, y: number): Promise<boolean> {
   return (await runPs(['click', String(Math.round(x)), String(Math.round(y))])) === true;
 }
 
+export interface ClickDiagResult {
+  ok: boolean;
+  before: [number, number];
+  after: [number, number];
+  screen: [number, number];
+}
+
+export async function clickDiag(x: number, y: number): Promise<ClickDiagResult | null> {
+  const v = (await runPs(['click-diag', String(Math.round(x)), String(Math.round(y))])) as {
+    ok?: boolean;
+    before?: number[];
+    after?: number[];
+    screen?: number[];
+  } | null;
+  if (!v) return null;
+  return {
+    ok: Boolean(v.ok),
+    before: [Number(v.before?.[0] || 0), Number(v.before?.[1] || 0)],
+    after: [Number(v.after?.[0] || 0), Number(v.after?.[1] || 0)],
+    screen: [Number(v.screen?.[0] || 0), Number(v.screen?.[1] || 0)],
+  };
+}
+
+export async function cursorPos(): Promise<[number, number] | null> {
+  const v = (await runPs(['cursor-pos'])) as number[] | null;
+  return v ? [Number(v[0] || 0), Number(v[1] || 0)] : null;
+}
+
+export interface WindowAtPointInfo {
+  hwnd: number;
+  rect: [number, number, number, number];
+  pid: number;
+  title: string;
+  exe: string;
+}
+
+export async function windowAtPoint(x: number, y: number): Promise<WindowAtPointInfo | null> {
+  const v = (await runPs(['window-at-point', String(Math.round(x)), String(Math.round(y))])) as {
+    hwnd?: number;
+    rect?: number[];
+    pid?: number;
+    title?: string;
+    exe?: string;
+  } | null;
+  if (!v) return null;
+  return {
+    hwnd: Number(v.hwnd || 0),
+    rect: [(v.rect?.[0] || 0), (v.rect?.[1] || 0), (v.rect?.[2] || 0), (v.rect?.[3] || 0)],
+    pid: Number(v.pid || 0),
+    title: String(v.title || ''),
+    exe: String(v.exe || ''),
+  };
+}
+
 export async function isAdmin(): Promise<boolean> {
   return (await runPs(['is-admin'])) === true;
 }
