@@ -1082,7 +1082,7 @@ async function checkProject(){
   chips += d.hasTodo ? b('TODO ✓（待办 ' + d.todoPending + '）', 'text-bg-success') : b('无 TODO', 'text-bg-danger');
   if(d.isGit) chips += b('git ✓', 'text-bg-secondary');
   if(d.hasStateFile) chips += b('记忆 ✓', 'text-bg-info');
-  if(!d.hasGoal && !d.hasTodo){
+  if(d.exists && !d.hasGoal && !d.hasTodo){
     chips += ' ' + b('新项目 —— 请先初始化', 'text-bg-warning');
     $('init-box').setAttribute('open', '');
   }

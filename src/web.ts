@@ -598,6 +598,7 @@ function router(): http.RequestListener {
       if (req.method === 'POST' && url === '/api/run') {
         const body = await readJsonBody(req);
         syncProjectIfNeeded(body); // 操作项目与页面显示保持一致
+        const cfg = getCfg(); // sync 可能切换了 currentCfg：重新取最新配置
         // 本界面只开放「无人值守」模式：固定 live（换号/续接/直到目标完成），
         // dry-run / limit-sim 仅 CLI 内部使用，不对用户开放
         const mode = 'live';
@@ -650,6 +651,7 @@ function router(): http.RequestListener {
         // 默认只发送不等待；body.wait = true 时轮询等待回复并返回（最多 5 分钟）。
         const body = await readJsonBody(req);
         syncProjectIfNeeded(body); // ask 的目标项目与页面显示保持一致
+        const cfg = getCfg(); // sync 可能切换了 currentCfg：重新取最新配置
         const prompt = String(body['prompt'] ?? '').trim();
         if (!prompt) {
           sendJson(res, 400, { ok: false, error: 'prompt 为空' });
@@ -788,6 +790,7 @@ function router(): http.RequestListener {
       if (req.method === 'POST' && url === '/api/init') {
         const body = await readJsonBody(req);
         syncProjectIfNeeded(body); // 初始化后页面数据跟随新项目
+        const cfg = getCfg(); // sync 可能切换了 currentCfg：重新取最新配置
         const project = body['project'] ? path.resolve(String(body['project'])) : cfg.projectDir;
         const expand = Boolean(body['expand']);
         const goal = String(body['goal'] ?? '').trim();

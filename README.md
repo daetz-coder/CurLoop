@@ -2,7 +2,7 @@
 
 无人值守 Cursor 编码循环（Windows，**TypeScript**）：CDP 驱动**真实 Cursor**，检测用量限制/登录失效后自动换号（换号助手 GUI 自动化）、重启并续接原会话，按目标项目的 `TODO.md` 复选框队列无人值守执行。
 
-> ⚠️ 自动换号绕过用量限制违反 Cursor ToS，账号存在风控/封禁风险。默认 `dry-run`，真实换号需显式 `--mode live` 且以管理员运行。
+> ⚠️ 自动换号绕过用量限制违反 Cursor ToS，账号存在风控/封禁风险。默认 `dry-run`，真实换号需 `--mode live`（Web 界面固定 live 并自动提权）。
 
 ## 架构（TypeScript 重写版）
 
@@ -15,7 +15,7 @@
   - `detection.ts` — 用量限制 / 登出 / 回复完成检测（DOM 中英文关键词，注入 JS）
   - `loginAssistant.ts` + `win32.ts` + `win32.ps1` — 换号助手 GUI 自动化：PowerShell 桥（Add-Type C#）窗口/截图/点击
   - `template.ts` — 纯 TS 模板匹配（pngjs 灰度 + 降采样 NCC，语义对齐 pyautogui CCOEFF_NORMED）
-  - `prompts.ts` — 提示词 v2：任务执行纪律 + 仓库上下文（git/HARNESS_STATE.md）、长对话检查点、FinalGoal 最终验收
+  - `prompts.ts` — 提示词注册表（8 个可编辑模板）+ 任务执行纪律 + 仓库上下文（git/HARNESS_STATE.md）、长对话检查点、FinalGoal 最终验收；支持 `%APPDATA%\curloop\prompts\<key>.txt` 覆盖
   - `todoQueue.ts` / `runState.ts` / `observer.ts` / `ui.ts` / `fileLock.ts` — TODO 队列、断点续跑（snapshot + events.jsonl）、状态统计、ANSI 渲染、跨进程同步锁
   - `loop.ts` — 无人值守状态机（`--check-config` / `--dry-run` / `--detect-only` / `--mode live|limit-sim`）
   - `cli.ts` — 交互 CLI + REPL（`run` / `plan` / `status` / `stats` / `watch` / `init` / `tasks` / `log` / `stop` / `report`）
@@ -59,13 +59,18 @@ curloop web --no-open           # 只启动服务，不打开浏览器
 
 在浏览器里完成全部 CLI 操作（**CLI 搬到 Web**）：
 
-- **产品级 UI**：Tabler 组件库（Bootstrap 5 暗色主题）+ ECharts 图表，全部**本地打包**（`src/web/vendor/`，离线可用）
+- **产品级 UI**：Tabler 组件库 + ECharts 图表，全部**本地打包**（`src/web/vendor/`，离线可用）
 - **可视化**：统计卡片（换号/对话/完成/续接）、**ECharts 轨迹时间线**（任务条+换号标记，滚轮缩放/拖拽）、
   近 24 小时活动柱状图、TODO 队列、账号列表、事件表（彩色徽标）、结束报告
-- **控制**：一键运行（模式/项目/最大任务/最大换号）、停止（写 STOP 文件优雅收尾）、初始化项目（输入最终目标生成 FinalGoal.md + TODO.md）、**手动向 Cursor 发送消息**（人在回路/调试，未运行自动唤醒并等待回复）
+- **控制**：
+  - 目标项目输入 + 浏览选择 + **「保存」默认路径**（写入配置，重启也默认使用）
+  - **一键开始运行**：新项目自动初始化/扩写（目标 + 内置提示词 → Cursor 生成完整 FinalGoal/TODO）再执行；已初始化直接运行
+  - 停止（写 STOP 文件优雅收尾）、**手动向 Cursor 发送消息**（人在回路/调试，未运行自动唤醒并等待回复）
+  - 运行参数：任务上限 / 换号上限 / 线程轮转 / 进度检查点 / 最终验收（Apple 风格开关）
+- **初始化状态圆点**：标题旁圆点颜色表示 已初始化(绿) / 部分完成(黄) / 需要初始化(红，自动展开) / 待输入(灰)
 - **实时**：运行子进程日志流式回传（终端样式状态栏）；页面每 2 秒自动刷新状态/事件
 
-说明：`live` / `limit-sim` 需要管理员——`curloop web` **启动时自动提权**（非管理员运行会弹 UAC 确认一次，之后以管理员运行，live/换号直接可用）；服务只绑定 `127.0.0.1`。
+说明：Web 固定「无人值守（live）」——`curloop web` **启动时自动提权**（非管理员运行会弹 UAC 确认一次，之后以管理员运行，live/换号直接可用）；服务只绑定 `127.0.0.1`。
 
 ## 长对话 / 记忆 / 可控 / 最终（Harness 设计）
 
@@ -75,8 +80,10 @@ curloop web --no-open           # 只启动服务，不打开浏览器
   - `prompt.checkpoint_every_tasks: 5`：让 Agent 定期把进度小结写入 `HARNESS_STATE.md`
 - **记忆（持久化）**：`HARNESS_STATE.md` 由 harness 在**每次结束**（run_done / 中断 / STOP / 中止 / 崩溃）自动生成
   （队列 + 账号 + 最近事件），任何新会话/恢复都有最低上下文；snapshot.json + events.jsonl 断点续跑不变
-- **提示词（可定制）**：`prompt.task_prompt_file` 指定自定义任务提示词文件（支持 `{project}` `{task}` `{retries}`
-  占位符，存在则完全覆盖内置）；`prompt.goal_in_task: true` 让任务提示词附带 FinalGoal 目标提示
+- **提示词（可定制）**：8 个内置模板（任务/扩展/重规划/首次规划/检查点/最终验收/续接/初始化扩写）注册在
+  `PROMPT_DEFS`，Web「提示词」页可视化编辑；保存到 `%APPDATA%\curloop\prompts\<key>.txt` 即覆盖（清空 = 恢复内置）；
+  `prompt.task_prompt_file` 可指定自定义任务提示词文件（`{project}` `{task}` `{retries}` 占位符）；
+  `prompt.goal_in_task: true` 让任务提示词附带 FinalGoal 目标提示
 - **自动换号**：撞 limit/登出自动换号（`login_assistant`），预算 `retry.max_total_account_switches_per_run`（0=不限）；
   CLI `--max-switches N` 可临时覆盖。
 - **可控**：
@@ -96,15 +103,18 @@ curloop web --no-open           # 只启动服务，不打开浏览器
 
 ```jsonc
 {
-  "project_dir": "D:\\your\\project",            // 目标项目（也可用 --project 指定）
+  "project_dir": "D:\\your\\project",            // 目标项目（也可用 --project 指定，Web 可保存）
   "cursor": { "exe": "C:\\Program Files\\cursor\\Cursor.exe" },
   "login_assistant": {
     "exe": "C:\\Users\\you\\Desktop\\CursorLoginAssistant-836.exe",
-    "refresh_template": "C:\\Users\\you\\Desktop\\refresh_cursor.png",
-    "confirm_template": "C:\\Users\\you\\Desktop\\confirm_ok.png"
+    "refresh_template": "",                      // 留空 = 用内置模板（打包自带，无需自己截图）
+    "confirm_template": ""
   }
 }
 ```
+
+换号助手的模板图片（`refresh_cursor.png` / `confirm_ok.png`）**内置打包**（`dist/assets/templates/`），
+未配置时自动使用；检测报告与 Web「配置路径检测」页会显示当前来源（内置/已配置/自动检测）。
 
 运行状态（队列快照 / 事件日志）默认存 `%APPDATA%\curloop\runstate`。
 

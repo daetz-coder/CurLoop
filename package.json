@@ -1,7 +1,7 @@
 {
   "name": "curloop",
-  "version": "0.2.0",
-  "description": "无人值守 Cursor 编码循环（TypeScript 重写版）：CDP 驱动真实 Cursor，检测用量/登录限制自动换号，按目标项目 TODO.md 队列无人值守执行（仅 Windows）。",
+  "version": "0.3.0",
+  "description": "无人值守 Cursor 编码 Harness（Windows，TypeScript）：CDP 驱动真实 Cursor 自动执行 TODO 队列，检测用量/登录限制自动换号，带产品级 Web 界面（可视化/控制/提示词编辑/自动提权）。",
   "keywords": [
     "cursor",
     "cdp",

@@ -18,7 +18,7 @@ Comments、README、CLI 输出与控制台字符串以**中文**为主；新增�
 
 - 构建：`npm run build`（tsc → `dist/`，并把 `src/win32.ps1`、`src/web/**` 复制到 `dist/`）；`npm run watch` 增量；`npm pack` 前自动 build。
 - 入口：`bin/curloop.js`（Node）——flag 参数（`-` 开头）→ `dist/loop.js main()`；子命令/空 → `dist/cli.js main()`（REPL）。
-- 运行时依赖：`ws`（CDP）、`minimist`（CLI 解析）、`proper-lockfile`（跨进程锁，异步）、`pngjs`（模板匹配）。
+- 运行时依赖：`ws`（CDP）、`minimist`（CLI 解析）、`pngjs`（模板匹配）。
 - **无任何 Python 残留**：仓库已删除全部 `.py`/`requirements.txt`/`runtime/`。`unattended/` 目录仅保留 3 个 `.bat` 启动器（自提权 + watchdog，ANSI/GBK + CRLF）。
 
 ## Commands（在 Harness 根 `D:\2026AppDev\CursorHarness`）
@@ -45,9 +45,9 @@ node bin\curloop.js init --final-goal           # 生成 FinalGoal.md + TODO.md 
 ## TypeScript 架构
 
 - `src/cdp.ts` — CDP 核心：`CdpSession`（WebSocket JSON-RPC，`call`/`evaluate`）、`launchCursor`、`waitCdp`、
-  `probePages`/`bestPage`/`sessionFor`、`tryFocusAndType`、`tryDismiss`。`PROBE_JS` 用已知选择器探测输入框。
-- `src/auth.ts` — 只读探测 `state.vscdb`（`node:sqlite`，绝不打印完整 token）：`readAuthFromDb`/`waitAuthInDb`，
-  DOM 登录门检测 `AUTH_GATE_JS`、`runConversation`（resume 语义）。
+  `probePages`/`bestPage`/`sessionFor`、`tryFocusAndType`。`PROBE_JS` 用已知选择器探测输入框。
+- `src/auth.ts` — 只读探测 `state.vscdb`（`node:sqlite`，绝不打印完整 token）：`readAuthFromDb`、
+  DOM 登录门检测 `AUTH_GATE_JS`、`waitDomLoggedIn`（启动繁忙期容错重试）。
 - `src/cursor.ts` — 唯一触碰真实 `%APPDATA%\Cursor` 配置的层：`init`（注入 CURSOR_EXE）、`dismissAll`/`dismissUntilClear`
   （`DISMISS_JS` 保守弹窗关闭）、`sendPrompt`/`clearComposer`、`pollReply`、`ensureReady`、`clickNewChat`（线程轮转用）。
 - `src/detection.ts` — 三段注入 JS + 分类器：`buildLimitJs`/`classifyLimit`、`REPLY_JS`/`CompletionTracker`、
@@ -62,7 +62,10 @@ node bin\curloop.js init --final-goal           # 生成 FinalGoal.md + TODO.md 
   `runTask`/`run`（Ctrl-C 秒级响应 + STOP 文件 + max_tasks 预算 + 三层收尾 + report.json）。
 - `src/cli.ts` — 交互 CLI + REPL（run/plan/status/stats/watch/init/tasks/log/stop/report/web）。
 - `src/web.ts` + `src/web/index.html` — Web 界面（Tabler 1.0 + ECharts 5 + marked，全部本地打包在
-  `src/web/vendor/`，离线可用）。`/api/config` 可改运行参数（写入 `%APPDATA%\curloop\config.json` 并热重载）。
+  `src/web/vendor/`，离线可用）。非管理员启动自动 UAC 提权；`/api/run` 固定 live 且新项目自动初始化/扩写
+  （runInitForProject）；`/api/project` POST 切换当前项目、`/api/project/save` 持久化默认项目；
+  `/api/prompts` 提示词编辑覆盖；`/api/config` 运行参数热重载（写入 `%APPDATA%\curloop\config.json`）；
+  前端 localStorage 记住最后项目 + 状态圆点 + Apple 开关。
 - `src/todoQueue.ts` / `src/runState.ts` / `src/observer.ts` / `src/ui.ts` / `src/fileLock.ts` — TODO 解析与勾选、
   断点续跑（snapshot + events.jsonl，5MB 轮转）、状态统计、ANSI 渲染、跨进程锁。
 - `src/loginAssistant.ts` + `src/win32.ts` + `src/win32.ps1` — 换号助手 GUI 自动化：PowerShell 桥（Add-Type C#）
@@ -107,7 +110,7 @@ node bin\curloop.js init --final-goal           # 生成 FinalGoal.md + TODO.md 
 - **记忆固化（`writeHarnessState`）**：`run_done`/`max_tasks`/`interrupt`/`stop`/`abort`/运行级错误**都必须**调用
   （与 `writeFinalReport` 并列），生成 `HARNESS_STATE.md`（队列 + 账号 + 最近事件）供新会话/恢复续接。
 - **同步锁**：`fileLock.ts` 的 `withSyncLock`（独占创建锁文件 + mtime 陈旧检测）——`runState.log/save` 与
-  `todoQueue.ensureDone` 热路径必须同步完成，不要改成异步 `withLock`（proper-lockfile 仅非热路径用）。
+  `todoQueue.ensureDone` 热路径必须同步完成（模块内唯一锁原语，无异步替代）。
 - **Web 界面**：`curloop web` 默认端口 3080（被占自动顺延 +1，最多 10 次）；静态资源走 `serveStatic`
   （URL 解码 + 去斜杠 + 越界 403）；`/api/config` 写 `%APPDATA%\curloop\config.json` 并热重载
   （`currentCfg` 可变引用，路由内用 `getCfg()`）。
