@@ -74,7 +74,10 @@ export function loadEvents(project?: string | null, stateDir?: string): Record<s
   const p = eventsPath(project, stateDir);
   const paths = eventLogPaths(p, EVENT_LOG_KEEP);
   if (!paths.length) {
-    return cache.path === p ? cache.events : [];
+    // 事件文件已不存在（第一次运行 / 已被清理）：不能返回旧缓存——
+    // 否则清理 runstate 或切换项目后，旧账号/旧事件会一直显示。
+    cache = { mtimeKey: '', events: [], path: p };
+    return [];
   }
   try {
     const key = mtimeKey(paths);

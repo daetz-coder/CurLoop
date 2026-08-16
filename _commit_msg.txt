@@ -1,0 +1,9 @@
+fix(observer): loadEvents 缓存失效 bug — runstate 清理/切换项目后旧事件仍显示
+
+- loadEvents 在事件文件不存在（paths.length===0）时，若 cache.path 恰好相同
+  会返回旧缓存——删除 runstate 或切换项目后，旧账号/旧任务/旧事件一直显示
+- 修复: 文件不存在时清空缓存并返回 []（不再命中旧缓存）
+- 附带清理 RAGLab@main_53cc9b34 的测试残留 runstate（误用 --project RAGLab
+  跑测试项目 curloop-logic-test 产生：事件 run_start.project 指向测试项目、
+  快照含测试任务"任务二"）
+- 实测: RAGLab 队列空/账号空/事件 0/FinalGoal 不存在（真实状态）
