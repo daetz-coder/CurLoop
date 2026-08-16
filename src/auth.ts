@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import * as path from 'path';
 import * as fs from 'fs';
-import { bestPage, sessionFor, sleep } from './cdp';
+import { bestPage, sessionFor, sleep, ProbePage } from './cdp';
 
 export type Json = Record<string, unknown>;
 
@@ -98,7 +98,16 @@ export async function waitDomLoggedIn(port: number, timeoutS: number): Promise<J
   const deadline = Date.now() + timeoutS * 1000;
   let last: Json = {};
   while (Date.now() < deadline) {
-    const [page] = await bestPage(port);
+    let page: ProbePage | null = null;
+    try {
+      const got = await bestPage(port);
+      page = got[0];
+    } catch (e) {
+      // CDP HTTP 瞬时无响应（Cursor 启动繁忙期 fetch 可能 abort）：容错重试，不抛给上层
+      console.log(`[auth-dom] transient bestPage error: ${String(e)}`);
+      await sleep(1.5);
+      continue;
+    }
     if (!page) {
       await sleep(1.5);
       continue;
@@ -106,6 +115,11 @@ export async function waitDomLoggedIn(port: number, timeoutS: number): Promise<J
     const s = await sessionFor(port, page);
     try {
       last = ((await s.evaluate(AUTH_GATE_JS)) as Json) || {};
+    } catch (e) {
+      // evaluate 也可能瞬时失败（页面仍在加载）：记录并重试
+      last = { _error: String(e) };
+      await sleep(1.5);
+      continue;
     } finally {
       await s.close();
     }

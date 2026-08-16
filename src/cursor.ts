@@ -302,6 +302,7 @@ async function waitDomResilient(cfg: Config): Promise<Record<string, unknown>> {
   const port = cfg.cursor.port;
   const deadline = Date.now() + cfg.timeouts.domReadyS * 1000;
   let last: Record<string, unknown> = {};
+  let downStreak = 0; // 连续 CDP 探测失败次数；Cursor 启动繁忙期可能瞬时无响应，不立即放弃
   while (Date.now() < deadline) {
     try {
       last = await waitDomLoggedIn(port, Math.max(5.0, (deadline - Date.now()) / 1000));
@@ -310,9 +311,13 @@ async function waitDomResilient(cfg: Config): Promise<Record<string, unknown>> {
     } catch (e) {
       console.log(`[dom] transient error, retrying: ${String(e)}`);
       last = { _error: String(e) };
-      if (!(await cdpUp(port))) {
-        last['_cdpDown'] = true;
-        return last;
+      downStreak += 1;
+      if (downStreak >= 3) {
+        if (!(await cdpUp(port))) {
+          last['_cdpDown'] = true;
+          return last;
+        }
+        downStreak = 0; // 又活了：重置连续失败计数
       }
       await sleep(2);
     }
