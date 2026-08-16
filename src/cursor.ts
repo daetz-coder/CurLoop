@@ -39,15 +39,22 @@ export async function cdpVersion(port: number): Promise<string | null> {
 }
 
 export async function killAllCursor(waitS = 2.0): Promise<void> {
-  const ps = `
-Get-CimInstance Win32_Process -Filter "Name = 'Cursor.exe'" | ForEach-Object {
-  try { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue } catch {}
-}
-`;
+  // taskkill /T 杀整个进程树（gpu/renderer/utility 子进程都是 Cursor.exe），
+  // 并轮询确认全部退出——旧实例残留的子进程会持有 user-data-dir 的单实例锁，
+  // 导致新实例（--remote-debugging-port=9333）启动后立即退出、CDP 起不来。
   await new Promise<void>((resolve) => {
-    cp.exec(`powershell -NoProfile -Command "${ps.replace(/"/g, '""')}"`, { encoding: 'utf8' }, () => resolve());
+    cp.exec(`taskkill /F /IM Cursor.exe /T`, { encoding: 'utf8' }, () => resolve());
   });
-  await sleep(waitS);
+  const deadline = Date.now() + Math.max(waitS, 8.0) * 1000;
+  while (Date.now() < deadline) {
+    const alive = await new Promise<number>((resolve) => {
+      cp.exec(`tasklist /FI "IMAGENAME eq Cursor.exe" /NH`, { encoding: 'utf8' }, (_e, stdout) => {
+        resolve(String(stdout || '').split(/\r?\n/).filter((l) => l.trim()).length);
+      });
+    });
+    if (alive === 0) break;
+    await sleep(0.5);
+  }
 }
 
 export async function launch(port: number, profile: string, workspace: string | null): Promise<cp.ChildProcess> {
@@ -263,17 +270,29 @@ export async function ensureReady(
       return result;
     }
     result['launched'] = true;
-    await killAllCursor();
-    try {
-      const proc = await launch(port, cfg.cursor.profile, workspace);
-      result['launchPid'] = proc.pid;
-      const version = await waitCdp(port, cfg.timeouts.cdpReadyS);
-      result['cdpVersion'] = version['Browser'];
-      console.log(`[cdp] ready: ${result['cdpVersion']}`);
-    } catch (e) {
-      (result['errors'] as string[]).push(`launch: ${String(e)}`);
-      return result;
+    // kill→launch 重试：旧实例残留进程可能持锁导致新实例 CDP 起不来（尤其用户
+    // 先手动开了不带 --remote-debugging-port 的 Cursor 再启动 web 的场景）。
+    let version: Record<string, unknown> | null = null;
+    for (let attempt = 0; attempt < 2 && !version; attempt++) {
+      await killAllCursor();
+      try {
+        const proc = await launch(port, cfg.cursor.profile, workspace);
+        result['launchPid'] = proc.pid;
+        version = await waitCdp(port, Math.max(30, Math.ceil(cfg.timeouts.cdpReadyS / 2)));
+      } catch {
+        version = null; // 残留锁竞争 → 再杀一次重试
+      }
     }
+    if (!version) {
+      try {
+        version = await waitCdp(port, Math.ceil(cfg.timeouts.cdpReadyS / 2));
+      } catch (e) {
+        (result['errors'] as string[]).push(`launch: ${String(e)}`);
+        return result;
+      }
+    }
+    result['cdpVersion'] = version['Browser'];
+    console.log(`[cdp] ready: ${result['cdpVersion']}`);
   } else {
     result['cdpVersion'] = await cdpVersion(port);
   }

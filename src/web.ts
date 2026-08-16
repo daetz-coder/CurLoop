@@ -255,7 +255,7 @@ function syncProjectIfNeeded(body: Record<string, unknown>): void {
 // 服务器运行期配置：/api/config 可改（写入 %APPDATA%\curloop\config.json 并热重载）
 let currentCfg: Config | null = null;
 function getCfg(): Config {
-  if (!currentCfg) currentCfg = cfgFor(process.cwd());
+  if (!currentCfg) currentCfg = loadConfig(null); // 兜底：用户配置（含保存的 project_dir）
   return currentCfg;
 }
 
@@ -914,7 +914,10 @@ export async function webMain(args: WebArgs): Promise<number> {
     }
   }
   const port = Number(args.port ?? DEFAULT_PORT);
-  const cfg = cfgFor(args.project || process.cwd());
+  // 项目优先级：--project 显式参数 > 用户配置 project_dir（保存的默认项目）> 当前目录。
+  // 不能无条件用 process.cwd() 覆盖——否则从任意目录启动 web 都会丢掉
+  // /api/project/save 保存的默认项目（用户已保存 TestLoad，却每次被重置为启动目录）。
+  const cfg = args.project ? cfgFor(args.project) : loadConfig(null);
   if (args.mode) cfg.mode = String(args.mode);
   currentCfg = cfg; // 路由读取该引用；/api/config 保存后热重载
 
