@@ -83,6 +83,9 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-
 
 /* ============ badges（subtle） ============ */
 .badge{font-weight:500;font-size:11px;border:1px solid transparent;border-radius:999px;padding:2px 10px;display:inline-block}
+/* 配置字段：input 与状态徽章同行，垂直居中（badge 不随 input 高度拉伸） */
+.cfg-field .d-flex{align-items:center}
+.cfg-field .badge{flex:none;align-self:center;line-height:1.4}
 .text-bg-success{background:#f0fdf4;color:#15803d;border-color:#bbf7d0}
 .text-bg-danger{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
 .text-bg-warning{background:#fffbeb;color:#b45309;border-color:#fde68a}
