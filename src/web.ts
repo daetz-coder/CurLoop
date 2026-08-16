@@ -10,7 +10,7 @@ import * as cursor from './cursor';
 import { CompletionTracker } from './detection';
 import { sleep } from './cdp';
 import { parseAll } from './todoQueue';
-import { PROMPT_DEFS, PROMPT_OVERRIDE_DIR, promptOverridePath, promptSource } from './prompts';
+import { PROMPT_DEFS, PROMPT_OVERRIDE_DIR, promptOverridePath, promptSource, expandGoalPrompt } from './prompts';
 
 /**
  * curloop Web 界面（仿 dsh web）：`curloop web` 启动本地 HTTP 服务器并自动打开浏览器。
@@ -681,30 +681,87 @@ function router(): http.RequestListener {
         syncProjectIfNeeded(body); // 初始化后页面数据跟随新项目
         const project = body['project'] ? path.resolve(String(body['project'])) : cfg.projectDir;
         const force = Boolean(body['force']);
-        const created: string[] = [];
+        const expand = Boolean(body['expand']);
         const goal = String(body['goal'] ?? '').trim();
         const goalP = path.join(project, 'FinalGoal.md');
+        const todoP = path.join(project, 'TODO.md');
+        const hasGoal = fs.existsSync(goalP);
+        const hasTodo = fs.existsSync(todoP);
         fs.mkdirSync(project, { recursive: true });
-        if (goal && (!fs.existsSync(goalP) || force)) {
-          const content =
-            '# 最终目标（FinalGoal）\n\n' +
-            '> 由 curloop web 初始化生成；本文件是仓库的最高级规划。\n\n' +
-            '## 最终目标\n\n' +
-            `${goal}\n\n` +
-            '## 硬门槛 / 交付物\n\n' +
-            '- [ ] （待补充，后续规划会对照本目标生成 TODO）\n';
+
+        // 已有 FinalGoal/TODO 且未勾选「重设」→ 不重复生成，提示已初始化
+        if ((hasGoal || hasTodo) && !force) {
+          sendJson(res, 200, { ok: true, alreadyInitialized: true, hasGoal, hasTodo });
+          return;
+        }
+
+        if (expand) {
+          // 扩写：用户输入 + 内置提示词 → 发给 Cursor → 扩写生成完整的 FinalGoal.md / TODO.md。
+          // 唤醒 + 发送 + 等待回复（最长 5 分钟），复用 ask 的完成判定。
+          const initCfg = cfgFor(project);
+          cursor.init(initCfg);
+          if (!(await cursor.cdpUp(initCfg.cursor.port))) {
+            logLine(`[web] /api/init 扩写前唤醒 Cursor（CDP ${initCfg.cursor.port} 未就绪，自动启动）...`);
+            const er = await cursor.ensureReady(initCfg, project, true);
+            if (!er['ok']) {
+              const reason = String(er['errors'] ?? 'not ready');
+              sendJson(res, 502, { ok: false, error: `唤醒 Cursor 失败: ${reason}`, wake: er });
+              return;
+            }
+          }
+          const prompt = expandGoalPrompt(project, goal || '（用户未填写目标，请根据项目现状生成规划）');
+          const sr = await cursor.sendPrompt(initCfg, prompt, true);
+          if (!sr['ok']) {
+            const type = (sr['type'] as Record<string, unknown>) || {};
+            const reason = String(sr['error'] || type['reason'] || 'send failed');
+            sendJson(res, 500, { ok: false, error: `扩写发送失败: ${reason}`, detail: sr });
+            return;
+          }
+          logLine(`[web] /api/init 扩写已发送，等待 Cursor 生成 FinalGoal/TODO...`);
+          const tracker = new CompletionTracker(
+            initCfg.timeouts.completionStablePolls,
+            initCfg.timeouts.minElapsedBeforeCompleteS,
+            initCfg.timeouts.replyMaxS,
+          );
+          let prev = new Set<string>();
+          const interval = initCfg.timeouts.completionPollIntervalS || 3;
+          const deadline = Date.now() + 5 * 60 * 1000;
+          let last: Record<string, unknown> = { state: 'busy' };
+          while (Date.now() < deadline) {
+            await sleep(interval);
+            last = await cursor.pollReply(initCfg, tracker, prev);
+            const st = String(last['state'] || '');
+            if (st === 'done' || st === 'limit' || st === 'logged_out' || st === 'hard_timeout' || st === 'no_page' || st === 'cdp_error') break;
+          }
+          const ok = last['state'] === 'done';
+          logLine(`[web] /api/init 扩写完成 state=${String(last['state'])}`);
+          sendJson(res, ok ? 200 : 502, {
+            ok,
+            expanded: true,
+            state: last['state'],
+            hasGoal: fs.existsSync(goalP),
+            hasTodo: fs.existsSync(todoP),
+            goalPath: goalP,
+            todoPath: todoP,
+            error: ok ? undefined : `扩写未完成（state=${String(last['state'])}），可检查 Cursor 是否正常生成文件`,
+          });
+          return;
+        }
+
+        // 不扩写：FinalGoal.md 以用户输入为核心（轻包装），TODO 用初始模板
+        const created: string[] = [];
+        if (!hasGoal || force) {
+          const content = goal
+            ? '# 最终目标（FinalGoal）\n\n> 由用户定义，curloop 对照本目标执行与验收。\n\n## 最终目标\n\n' + goal + '\n'
+            : INIT_GOAL;
           fs.writeFileSync(goalP, content, 'utf-8');
           created.push(goalP);
-        } else if (!goal && (!fs.existsSync(goalP) || force)) {
-          fs.writeFileSync(goalP, INIT_GOAL, 'utf-8');
-          created.push(goalP);
         }
-        const todoP = path.join(project, 'TODO.md');
-        if (!fs.existsSync(todoP) || force) {
+        if (!hasTodo || force) {
           fs.writeFileSync(todoP, INIT_TODO, 'utf-8');
           created.push(todoP);
         }
-        sendJson(res, 200, { ok: true, created, existed: { FinalGoal: fs.existsSync(goalP), TODO: fs.existsSync(todoP) } });
+        sendJson(res, 200, { ok: true, created, existed: { FinalGoal: hasGoal, TODO: hasTodo }, hasGoal: true, hasTodo: true });
         return;
       }
       if (req.method === 'GET' && url === '/api/prompts') {
