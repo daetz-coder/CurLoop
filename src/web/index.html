@@ -350,7 +350,7 @@ details.panel .panel-b{padding-top:0}
               <details class="panel mb-2" id="init-box">
                 <summary>初始化项目（生成 FinalGoal.md / TODO.md）<span class="badge text-bg-secondary" id="init-status" style="margin-left:4px">检测中…</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
                 <div class="panel-b">
-                  <label class="form-label">最终目标（你的定义；留空则生成模板）</label>
+                  <label class="form-label">最终目标（你的定义；新项目首次运行前需填写，留空则生成模板）</label>
                   <textarea class="form-control mb-2" id="f-goal" rows="3" placeholder="例如：用 TypeScript 完成一个 CLI 工具并发布到 npm…"></textarea>
                   <div class="d-flex align-items-center gap-3 flex-wrap">
                     <label class="switch" title="开：把你的目标 + 内置提示词发给 Cursor 扩写为完整的 FinalGoal.md / TODO.md；关：直接以你的目标生成 FinalGoal.md，TODO 用初始模板">
@@ -360,11 +360,8 @@ details.panel .panel-b{padding-top:0}
                     </label>
                     <label class="d-flex align-items-center gap-1 mb-0" style="font-size:12px;color:var(--muted-fg)">
                       <input type="checkbox" id="f-force" style="width:auto"> 重设（覆盖已有 FinalGoal/TODO）</label>
-                    <button type="button" class="btn btn-outline btn-sm" id="btn-init">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                      生成</button>
                   </div>
-                  <div class="param-hint" id="init-hint">已保存的项目会自动判断：无 FinalGoal/TODO 才需生成；已有则不重复生成，除非勾选「重设」。</div>
+                  <div class="param-hint" id="init-hint">点「开始运行」即可：新项目（无 FinalGoal/TODO）会先用上面的目标初始化/扩写，再自动执行队列；已初始化项目直接运行。</div>
                 </div>
               </details>
               <div class="d-flex gap-2 flex-wrap align-items-start">
@@ -1336,27 +1333,40 @@ $('btn-prompts-reset-all').addEventListener('click', async () => {
 $('run-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   // 模式/上限/轮转等参数统一由「运行参数」面板持久化配置决定，此处只指定项目
+  // 新项目（无 FinalGoal/TODO）由开始运行自动初始化/扩写：传目标 + 扩写开关 + 重设
   const body = {
     project: $('f-project').value.trim() || undefined,
+    goal: $('f-goal').value.trim() || undefined,
+    expand: $('f-expand').checked,
+    force: $('f-force').checked,
   };
-  // 流程守卫：新项目（无 FinalGoal/TODO）先初始化，避免直接跑空
-  const pc = await api('/api/project?dir=' + encodeURIComponent(body.project || ''));
-  if(pc.ok && !pc.hasGoal && !pc.hasTodo){
-    const div = document.createElement('div');
-    div.textContent = '[web] 该项目还没有 FinalGoal / TODO —— 请先在「初始化项目」中生成（新项目流程）';
-    div.style.color = L.yellow;
-    $('console').appendChild(div);
-    $('init-box').setAttribute('open', '');
-    return;
+  const btn = $('btn-run');
+  const box = $('console');
+  const note = document.createElement('div');
+  if(body.expand){
+    note.textContent = '[web] 开始运行（新项目自动扩写：唤醒 Cursor 生成 FinalGoal/TODO，约 1-3 分钟后执行）…';
+    note.style.color = L.cyan;
+    box.appendChild(note);
   }
-  const r = await api('/api/run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-  if(!r.ok){
-    const div = document.createElement('div');
-    div.textContent = '[web] 启动失败: ' + (r.error || 'unknown');
-    div.style.color = L.red;
-    $('console').appendChild(div);
+  btn.disabled = true;
+  try {
+    const r = await api('/api/run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if(!r.ok){
+      const div = document.createElement('div');
+      div.textContent = '[web] 启动失败: ' + (r.error || 'unknown');
+      div.style.color = L.red;
+      box.appendChild(div);
+      if(!r.error || !/已有任务/.test(r.error)) $('init-box').setAttribute('open', '');
+    } else {
+      const div = document.createElement('div');
+      div.textContent = '[web] 已启动运行（如为新项目，先初始化/扩写再执行）';
+      div.style.color = L.green;
+      box.appendChild(div);
+    }
+    refreshStatus();
+  } finally {
+    btn.disabled = false;
   }
-  refreshStatus();
 });
 
 $('btn-stop').addEventListener('click', async () => {
@@ -1380,38 +1390,6 @@ $('f-expand')?.addEventListener('change', (e) => {
   if(hint) hint.textContent = e.target.checked
     ? '扩写：把你的目标 + 内置提示词发给 Cursor，由它扩写生成完整的 FinalGoal.md / TODO.md（需 Cursor 运行，约 1-3 分钟）'
     : '不扩写：直接以你的目标生成 FinalGoal.md，TODO 用初始模板；后续 run 会自动对照 FinalGoal 补充。';
-});
-
-$('btn-init').addEventListener('click', async () => {
-  const btn = $('btn-init');
-  const box = $('console');
-  const div = document.createElement('div');
-  div.style.color = L.cyan;
-  div.textContent = '[web] 正在初始化' + ($('f-expand').checked ? '（扩写：唤醒 Cursor 并等待生成…）' : '…');
-  box.appendChild(div);
-  btn.disabled = true;
-  try {
-    const r = await api('/api/init', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ goal: $('f-goal').value, project: $('f-project').value.trim() || undefined, force: $('f-force').checked, expand: $('f-expand').checked }) });
-    const d2 = document.createElement('div');
-    if(r.alreadyInitialized){
-      d2.textContent = '[web] 该项目已有 FinalGoal / TODO —— 无需重复生成；要重新生成请勾选「重设」';
-      d2.style.color = L.yellow;
-    } else if(r.expanded){
-      d2.textContent = r.ok
-        ? '[web] 扩写完成：FinalGoal=' + r.hasGoal + ' TODO=' + r.hasTodo + '（' + r.goalPath + ' / ' + r.todoPath + '）'
-        : '[web] 扩写未完成: ' + (r.error || '');
-      d2.style.color = r.ok ? L.green : L.red;
-    } else {
-      d2.textContent = '[web] 初始化: ' + JSON.stringify(r.created || r);
-      d2.style.color = r.ok ? L.green : L.red;
-    }
-    box.appendChild(d2);
-    checkProject();
-    refreshStatus();
-    loadGoal();
-  } finally {
-    btn.disabled = false;
-  }
 });
 
 $('btn-ask').addEventListener('click', async () => {
