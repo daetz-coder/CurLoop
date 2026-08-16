@@ -924,16 +924,19 @@ function prepareTrajectory(evs){
   const bars = [];
   const markers = { ok:[], fail:[], sent:[], ext:[] };
   for(const e of chrono){
+    const ts = Number(e.ts || 0);
+    // 只统计最近一次 run 内的事件（t0 = 最近 run_start），避免混入旧 run 的历史
+    if(startTs && ts < startTs) continue;
     const ev = String(e.event || '');
     if(ev === 'task_start'){
-      pending.push({ ts: Number(e.ts), text: String(e.task || '') });
+      pending.push({ ts, text: String(e.task || '') });
     } else if(ev === 'task_done' || ev === 'task_skipped' || ev === 'task_error'){
       const st = pending.shift();
       if(st) bars.push({ start: st.ts, end: Number(e.ts) || endTs, text: st.text, kind: ev });
-    } else if(ev === 'switch_ok') markers.ok.push({ ts: Number(e.ts), name: String(e.email || '换号成功') });
-    else if(ev === 'switch_failed') markers.fail.push({ ts: Number(e.ts), name: '换号失败' });
-    else if(ev === 'sent') markers.sent.push({ ts: Number(e.ts), name: '发送' });
-    else if(ev === 'extend_result' || ev === 'checkpoint') markers.ext.push({ ts: Number(e.ts), name: ev });
+    } else if(ev === 'switch_ok') markers.ok.push({ ts, name: String(e.email || '换号成功') });
+    else if(ev === 'switch_failed') markers.fail.push({ ts, name: '换号失败' });
+    else if(ev === 'sent') markers.sent.push({ ts, name: '发送' });
+    else if(ev === 'extend_result' || ev === 'checkpoint') markers.ext.push({ ts, name: ev });
   }
   return { t0, endTs, bars, markers, hasRun: Boolean(startTs) };
 }
@@ -1050,7 +1053,9 @@ function renderActivity(evs){
       { name: '换号失败', type: 'bar', stack: 'a', data: buckets.map(b => b.fail), itemStyle: { color: L.red }, barMaxWidth: 18 },
     ],
   }, true);
-  $('act-hint').textContent = total ? '近 24 小时共 ' + total + ' 次活动' : '近 24 小时无活动';
+  $('act-hint').textContent = total
+    ? '近 24 小时共 ' + total + ' 次活动（含历史所有 run；总览卡片只统计最近一次 run）'
+    : '近 24 小时无活动';
 }
 
 async function refreshCharts(){
