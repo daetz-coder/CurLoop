@@ -46,6 +46,10 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-
 .status-chip .dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--border-strong);transition:background-color .2s}
 .status-chip .dot.on{animation:pulse2 1.6s infinite}
 @keyframes pulse2{50%{opacity:.4}}
+/* 初始化状态圆点（summary 内）：颜色表达状态，hover 显示文字 */
+.init-dot{display:inline-block;width:9px;height:9px;border-radius:50%;flex:none;margin-left:6px;
+  background:var(--border-strong);transition:background-color .2s;vertical-align:1px;cursor:default}
+.init-dot.attention{animation:pulse2 1.6s infinite}
 .side-foot #h-project{font-family:var(--mono);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted-fg)}
 
 .main{flex:1;min-width:0;display:flex;flex-direction:column}
@@ -348,7 +352,7 @@ details.panel .panel-b{padding-top:0}
               <!-- 项目状态：自动检测 FinalGoal / TODO / git -->
               <div class="d-flex align-items-center gap-2 flex-wrap mb-2" id="project-status"></div>
               <details class="panel mb-2" id="init-box">
-                <summary>初始化项目（生成 FinalGoal.md / TODO.md）<span class="badge text-bg-secondary" id="init-status" style="margin-left:4px">检测中…</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                <summary>初始化项目（生成 FinalGoal.md / TODO.md）<span class="init-dot" id="init-status" title="检测中…"></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
                 <div class="panel-b">
                   <label class="form-label">最终目标（你的定义；新项目首次运行前需填写，留空则生成模板）</label>
                   <textarea class="form-control mb-2" id="f-goal" rows="3" placeholder="例如：用 TypeScript 完成一个 CLI 工具并发布到 npm…"></textarea>
@@ -1054,8 +1058,8 @@ async function checkProject(){
   const dir = $('f-project').value.trim();
   if(!dir){
     $('project-status').innerHTML = '';
-    const stBadge = $('init-status');
-    if(stBadge){ stBadge.textContent = '待输入'; stBadge.className = 'badge text-bg-secondary'; }
+    const dot = $('init-status');
+    if(dot){ dot.style.background = 'var(--border-strong)'; dot.title = '待输入'; dot.classList.remove('attention'); }
     const hint = $('init-hint');
     if(hint) hint.textContent = '输入或选择目标项目路径后，自动判断初始化状态。';
     return;
@@ -1075,25 +1079,21 @@ async function checkProject(){
     $('init-box').setAttribute('open', '');
   }
   $('project-status').innerHTML = chips;
-  // 初始化提示：按项目状态更新（已保存/已初始化判断）+ 响应式状态徽章
+  // 初始化状态圆点：颜色表达状态（绿=已初始化 / 黄=部分 / 红=需初始化或目录不存在 / 灰=待输入）
   const hint = $('init-hint');
-  const stBadge = $('init-status');
+  const dot = $('init-status');
   const initBox = $('init-box');
-  if(stBadge){
+  if(dot){
     if(!d.exists){
-      stBadge.textContent = '目录不存在';
-      stBadge.className = 'badge text-bg-danger';
+      dot.style.background = L.red; dot.title = '目录不存在'; dot.classList.remove('attention');
     } else if(d.hasGoal && d.hasTodo){
-      stBadge.textContent = '✓ 已初始化';
-      stBadge.className = 'badge text-bg-success';
+      dot.style.background = L.green; dot.title = '已初始化'; dot.classList.remove('attention');
       initBox.removeAttribute('open'); // 已完成：收起
     } else if(d.hasGoal || d.hasTodo){
-      stBadge.textContent = '部分完成';
-      stBadge.className = 'badge text-bg-warning';
+      dot.style.background = L.yellow; dot.title = '部分完成'; dot.classList.add('attention');
       initBox.setAttribute('open', '');
     } else {
-      stBadge.textContent = '需要初始化';
-      stBadge.className = 'badge text-bg-danger';
+      dot.style.background = L.red; dot.title = '需要初始化'; dot.classList.add('attention');
       initBox.setAttribute('open', '');
     }
   }
@@ -1103,7 +1103,7 @@ async function checkProject(){
     } else if(d.hasGoal || d.hasTodo){
       hint.textContent = '该项目已有部分文件（' + (d.hasGoal ? 'FinalGoal ✓' : '无 FinalGoal') + ' / ' + (d.hasTodo ? 'TODO ✓' : '无 TODO') + '）——可勾选「重设」补齐。';
     } else if(d.exists){
-      hint.textContent = '新项目（无 FinalGoal/TODO）——请填写目标后点「生成」初始化。';
+      hint.textContent = '新项目（无 FinalGoal/TODO）——请填写目标后点「开始运行」，会自动初始化/扩写再执行。';
     }
   }
   // 目录有效时同步服务器当前项目，让队列/FinalGoal/事件显示该项目的真实数据
