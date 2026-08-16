@@ -336,6 +336,9 @@ details.panel .panel-b{padding-top:0}
                     <button type="button" class="btn btn-outline" id="btn-browse" style="flex:none">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"/></svg>
                       浏览</button>
+                    <button type="button" class="btn btn-primary" id="btn-save-project" style="flex:none">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+                      保存</button>
                   </div>
                 </div>
                 <div class="col-md-3 d-flex align-items-end">
@@ -1141,6 +1144,25 @@ $('browse-select').addEventListener('click', () => {
   $('browse-modal').classList.remove('show');
   $('f-project').value = browsePath;
   checkProject();
+});
+
+// 保存默认目标项目：写入服务器用户配置（后续默认使用），并同步 localStorage
+$('btn-save-project').addEventListener('click', async () => {
+  const dir = $('f-project').value.trim();
+  const box = $('console');
+  const msg = (txt, color) => { const div = document.createElement('div'); div.textContent = '[web] ' + txt; div.style.color = color; box.appendChild(div); };
+  if(!dir){
+    msg('请先输入目标项目路径', L.red);
+    return;
+  }
+  const r = await api('/api/project/save', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ dir }) });
+  if(r.ok){
+    rememberProject(dir); // 同步前端记忆
+    msg('已保存默认目标项目: ' + r.project + '（后续默认使用；已写入 ' + r.configPath + '）', L.green);
+    checkProject();
+  } else {
+    msg('保存失败: ' + (r.error || ''), L.red);
+  }
 });
 
 // ============ 配置路径检测 ============

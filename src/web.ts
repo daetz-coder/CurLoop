@@ -423,6 +423,46 @@ function router(): http.RequestListener {
         });
         return;
       }
+      if (req.method === 'POST' && url === '/api/project/save') {
+        // 保存默认目标项目：把 project_dir 写入用户配置并热重载，
+        // 之后启动（不带 --project）与页面都默认使用该路径。
+        const body = await readJsonBody(req);
+        const dir = body['dir'] ? path.resolve(String(body['dir'])) : cfg.projectDir;
+        if (!fs.existsSync(dir)) {
+          sendJson(res, 404, { ok: false, error: `目录不存在: ${dir}` });
+          return;
+        }
+        try {
+          let merged: Record<string, unknown> = {};
+          if (fs.existsSync(USER_CONFIG)) {
+            try {
+              merged = readJsonFile<Record<string, unknown>>(USER_CONFIG);
+            } catch {
+              merged = {};
+            }
+          }
+          merged['project_dir'] = dir;
+          fs.mkdirSync(path.dirname(USER_CONFIG), { recursive: true });
+          fs.writeFileSync(USER_CONFIG, JSON.stringify(merged, null, 2), 'utf-8');
+          currentCfg = cfgFor(dir); // 同步当前项目
+          logLine(`[web] 已保存默认项目 -> ${dir}（${USER_CONFIG}）`);
+          const goalP = path.join(dir, currentCfg.finalGoalFile);
+          const todoP = path.join(dir, currentCfg.todoPath);
+          sendJson(res, 200, {
+            ok: true,
+            project: dir,
+            configPath: USER_CONFIG,
+            exists: true,
+            hasGoal: fs.existsSync(goalP),
+            hasTodo: fs.existsSync(todoP),
+            isGit: fs.existsSync(path.join(dir, '.git')),
+            hasStateFile: fs.existsSync(path.join(dir, 'HARNESS_STATE.md')),
+          });
+        } catch (e) {
+          sendJson(res, 500, { ok: false, error: `保存失败: ${String(e)}` });
+        }
+        return;
+      }
       if (req.method === 'GET' && url === '/api/goal') {
         // FinalGoal.md 内容（无固定格式，前端用 Markdown 渲染）
         const p = cfg.finalGoalFilePath;
