@@ -348,7 +348,7 @@ details.panel .panel-b{padding-top:0}
               <!-- 项目状态：自动检测 FinalGoal / TODO / git -->
               <div class="d-flex align-items-center gap-2 flex-wrap mb-2" id="project-status"></div>
               <details class="panel mb-2" id="init-box">
-                <summary>初始化项目（生成 FinalGoal.md / TODO.md）<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
+                <summary>初始化项目（生成 FinalGoal.md / TODO.md）<span class="badge text-bg-secondary" id="init-status" style="margin-left:4px">检测中…</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
                 <div class="panel-b">
                   <label class="form-label">最终目标（你的定义；留空则生成模板）</label>
                   <textarea class="form-control mb-2" id="f-goal" rows="3" placeholder="例如：用 TypeScript 完成一个 CLI 工具并发布到 npm…"></textarea>
@@ -367,18 +367,16 @@ details.panel .panel-b{padding-top:0}
                   <div class="param-hint" id="init-hint">已保存的项目会自动判断：无 FinalGoal/TODO 才需生成；已有则不重复生成，除非勾选「重设」。</div>
                 </div>
               </details>
-              <div class="d-flex gap-2 flex-wrap">
-                <button type="submit" class="btn btn-primary" id="btn-run">
-                  <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-                  开始运行</button>
-                <button type="button" class="btn btn-danger" id="btn-stop" disabled>
-                  <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-                  停止</button>
-              </div>
-            </form>
-            <div class="row g-2 mt-1">
-              <div class="col-md-6">
-                <details class="panel" id="ask-box">
+              <div class="d-flex gap-2 flex-wrap align-items-start">
+                <div class="d-flex gap-2 flex-wrap">
+                  <button type="submit" class="btn btn-primary" id="btn-run">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                    开始运行</button>
+                  <button type="button" class="btn btn-danger" id="btn-stop" disabled>
+                    <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                    停止</button>
+                </div>
+                <details class="panel flex-grow-1" id="ask-box" style="min-width:300px">
                   <summary>手动向 Cursor 发送消息（人在回路 / 调试）<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
                   <div class="panel-b">
                     <label class="form-label">消息内容（发送到 Cursor 当前会话；未运行会自动唤醒）</label>
@@ -389,7 +387,7 @@ details.panel .panel-b{padding-top:0}
                   </div>
                 </details>
               </div>
-            </div>
+            </form>
           </div>
         </div>
         <div class="panel mb-3">
@@ -1057,7 +1055,14 @@ function lastProject(){
 
 async function checkProject(){
   const dir = $('f-project').value.trim();
-  if(!dir){ $('project-status').innerHTML = ''; return; }
+  if(!dir){
+    $('project-status').innerHTML = '';
+    const stBadge = $('init-status');
+    if(stBadge){ stBadge.textContent = '待输入'; stBadge.className = 'badge text-bg-secondary'; }
+    const hint = $('init-hint');
+    if(hint) hint.textContent = '输入或选择目标项目路径后，自动判断初始化状态。';
+    return;
+  }
   const d = await api('/api/project?dir=' + encodeURIComponent(dir));
   if(!d.ok) return;
   if(d.exists) rememberProject(dir); // 记住有效路径
@@ -1073,8 +1078,28 @@ async function checkProject(){
     $('init-box').setAttribute('open', '');
   }
   $('project-status').innerHTML = chips;
-  // 初始化提示：根据项目状态更新（已保存/已初始化判断）
+  // 初始化提示：按项目状态更新（已保存/已初始化判断）+ 响应式状态徽章
   const hint = $('init-hint');
+  const stBadge = $('init-status');
+  const initBox = $('init-box');
+  if(stBadge){
+    if(!d.exists){
+      stBadge.textContent = '目录不存在';
+      stBadge.className = 'badge text-bg-danger';
+    } else if(d.hasGoal && d.hasTodo){
+      stBadge.textContent = '✓ 已初始化';
+      stBadge.className = 'badge text-bg-success';
+      initBox.removeAttribute('open'); // 已完成：收起
+    } else if(d.hasGoal || d.hasTodo){
+      stBadge.textContent = '部分完成';
+      stBadge.className = 'badge text-bg-warning';
+      initBox.setAttribute('open', '');
+    } else {
+      stBadge.textContent = '需要初始化';
+      stBadge.className = 'badge text-bg-danger';
+      initBox.setAttribute('open', '');
+    }
+  }
   if(hint){
     if(d.hasGoal && d.hasTodo){
       hint.textContent = '该项目已初始化（FinalGoal ✓ + TODO ✓）——无需重复生成；要重新规划请勾选「重设」。';
