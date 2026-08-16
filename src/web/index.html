@@ -1036,12 +1036,22 @@ async function refreshCharts(){
 
 // ============ 目标项目：选择 / 检测 / 初始化 ============
 let browsePath = '', browseParent = null;
+const LAST_PROJECT_KEY = 'curloop.lastProject';
+
+// 记住最后使用的项目路径（有效目录才记，避免记下残缺输入）
+function rememberProject(dir){
+  try { localStorage.setItem(LAST_PROJECT_KEY, dir); } catch { /* ignore */ }
+}
+function lastProject(){
+  try { return localStorage.getItem(LAST_PROJECT_KEY) || ''; } catch { return ''; }
+}
 
 async function checkProject(){
   const dir = $('f-project').value.trim();
   if(!dir){ $('project-status').innerHTML = ''; return; }
   const d = await api('/api/project?dir=' + encodeURIComponent(dir));
   if(!d.ok) return;
+  if(d.exists) rememberProject(dir); // 记住有效路径
   const b = (txt, cls) => '<span class="badge ' + cls + '">' + txt + '</span>';
   let chips = '';
   if(!d.exists) chips += b('目录不存在', 'text-bg-danger');
@@ -1062,12 +1072,17 @@ $('f-project').addEventListener('input', () => {
   projTimer = setTimeout(checkProject, 500);
 });
 window.addEventListener('load', () => {
-  // 初始项目回填并检测
+  // 初始项目回填：优先用记住的路径（localStorage），其次服务器当前项目
+  const remembered = lastProject();
+  const fill = (dir) => { $('f-project').value = dir; checkProject(); };
+  if(remembered){
+    fill(remembered);
+    return;
+  }
   const st = api('/api/status');
   st.then((d) => {
     if(d.ok && d.project && !$('f-project').value){
-      $('f-project').value = d.project;
-      checkProject();
+      fill(d.project);
     }
   });
 });
