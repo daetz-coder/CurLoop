@@ -133,19 +133,25 @@ export function shortDetail(e: Record<string, unknown>): string {
   return '';
 }
 
-/** 状态展示的队列与 RunState.load 的 done 过滤对齐（读最近一次 run_start 的 todo 字段）。 */
+/** 状态展示的完整 TODO 列表：直接解析 TODO.md（含已完成 + 待办），
+ *  并用 snapshot 的 running 状态标记当前正在执行的任务。 */
 function todoAlignedQueue(
   project: string | null | undefined,
   snap: Record<string, unknown>,
   stateDir?: string,
 ): Array<{ text: string; status: string | undefined; retries: number; switch_reason: unknown }> {
-  const raw = (snap['queue'] as Record<string, unknown>[]) || [];
-  if (!raw.length) return [];
+  // 找到最近一次 run 使用的 TODO 文件
   let todo: string | null = null;
   for (const e of loadEvents(project, stateDir)) {
     if (e['event'] === 'run_start' && e['todo']) todo = String(e['todo']); // 保留最后一次
   }
-  if (!todo || !fs.existsSync(todo)) {
+  const todoFile = todo && fs.existsSync(todo) ? todo : (project ? path.join(project, 'TODO.md') : null);
+
+  // 完整列表来自 TODO.md（含 [x] 已完成），顺序 = 文件顺序
+  const tasks = todoFile && fs.existsSync(todoFile) ? parseAll(todoFile) : [];
+  if (!tasks.length) {
+    // 无 TODO.md：回退 snapshot 队列（至少展示运行中的状态）
+    const raw = (snap['queue'] as Record<string, unknown>[]) || [];
     return raw.map((t) => ({
       text: String(t['text'] ?? '').slice(0, 70),
       status: t['status'] as string | undefined,
@@ -153,20 +159,19 @@ function todoAlignedQueue(
       switch_reason: t['switch_reason'],
     }));
   }
-  const doneNorms = new Set(parseAll(todo).filter((t) => t.done).map((t) => t.normalized()));
-  const out: Array<{ text: string; status: string | undefined; retries: number; switch_reason: unknown }> = [];
-  for (const t of raw) {
-    const full = String(t['text'] ?? '');
-    const item = {
-      text: full.slice(0, 70),
-      status: t['status'] as string | undefined,
-      retries: Number(t['retries'] ?? 0),
-      switch_reason: t['switch_reason'],
-    };
-    if (item.status !== 'done' && doneNorms.has(norm(full))) item.status = 'done';
-    out.push(item);
-  }
-  return out;
+
+  // snapshot 中 running 的任务 → 标记为进行中（按规范化文本匹配）
+  const runningNorms = new Set(
+    ((snap['queue'] as Record<string, unknown>[]) || [])
+      .filter((t) => t['status'] === 'running' || t['status'] === 'pending')
+      .map((t) => norm(String(t['text'] ?? ''))),
+  );
+
+  return tasks.map((t) => {
+    const isRunning = runningNorms.has(t.normalized());
+    const status = t.done ? 'done' : isRunning ? 'running' : 'pending';
+    return { text: t.text, status, retries: t.retries, switch_reason: null };
+  });
 }
 
 export interface StatusStats {

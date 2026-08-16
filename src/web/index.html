@@ -172,9 +172,15 @@ details.panel .panel-b{padding-top:0}
 .term-out::-webkit-scrollbar{width:9px}.term-out::-webkit-scrollbar-thumb{background:#2c2c2e;border-radius:4px}
 
 /* ============ lists / tables ============ */
+/* TODO 队列：完整列表 + 滚动窗口（最长约 8 项可视，超出滚动） */
+.queue-scroll{max-height:330px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.queue-scroll::-webkit-scrollbar{width:9px}
+.queue-scroll::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:4px}
 .queue-item{display:flex;align-items:center;gap:9px;padding:9px 16px;border-bottom:1px solid #f1f1f3;font-size:13px;transition:background-color .12s}
 .queue-item:last-child{border-bottom:none}
 .queue-item:hover{background:var(--muted)}
+.queue-item.done{opacity:.62}
+.queue-item.done .q-text{text-decoration:line-through;color:var(--muted-fg)}
 .table{font-size:13px}
 .table thead th{color:var(--muted-fg);font-weight:500;font-size:11px;letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid var(--border)}
 .table td{border-bottom:1px solid #f3f3f5;vertical-align:middle}
@@ -508,7 +514,7 @@ details.panel .panel-b{padding-top:0}
               <div class="panel-h"><span class="t">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
                 TODO 队列</span><span class="badge text-bg-secondary" id="queue-count">—</span></div>
-              <div id="queue"><div class="p-3 text-secondary">加载中…</div></div>
+              <div class="queue-scroll" id="queue"><div class="p-3 text-secondary">加载中…</div></div>
             </div>
           </div>
           <div class="col-lg-6">
@@ -800,11 +806,13 @@ async function refreshStatus(){
   $('btn-stop').disabled = !d.running;
 
   const s = d.status.stats;
+  const queueTotal = d.status.queue.length;
+  const queuePending = d.status.queue.filter(x => x.status !== 'done').length;
   const cards = [
     { k:'换号', v:s.switches, sub:s.switch_ok+' 成功 / '+s.switch_failed+' 失败', icon:I.swap, tint:'tint-blue' },
     { k:'对话发送', v:s.sends, sub:'当前 run', icon:I.send, tint:'tint-cyan' },
     { k:'任务完成', v:s.tasks_done, sub:'续接 '+s.extend_ok, icon:I.check, tint:'tint-green' },
-    { k:'队列', v:d.status.queue.length, sub:'项待执行', icon:I.list, tint:'tint-purple' },
+    { k:'待办队列', v:queuePending, sub:'共 '+queueTotal+' 项', icon:I.list, tint:'tint-purple' },
     { k:'运行状态', v:d.status.running, sub:'刷新 '+d.status.now, icon:I.clock, tint:'tint-amber' },
   ];
   $('cards').innerHTML = cards.map(c =>
@@ -814,11 +822,13 @@ async function refreshStatus(){
   ).join('');
 
   const q = d.status.queue;
-  $('queue-count').textContent = q.length + ' 项';
+  const pendingCount = q.filter(x => x.status !== 'done').length;
+  $('queue-count').textContent = q.length + ' 项（待办 ' + pendingCount + '）';
   $('queue').innerHTML = q.length ? q.map(x => {
     const mk = {done:'<span class="badge text-bg-success">✓</span>', running:'<span class="badge text-bg-info">▶</span>', pending:'<span class="badge text-bg-secondary">○</span>', skipped:'<span class="badge text-bg-danger">✗</span>'};
     const st = mk[x.status] || '<span class="badge text-bg-secondary">'+esc(x.status)+'</span>';
-    return '<div class="queue-item">' + st + '<span class="flex-grow-1">' + esc(x.text) + '</span>' + (x.retries ? '<span class="badge text-bg-warning">重试'+x.retries+'</span>' : '') + '</div>';
+    const cls = x.status === 'done' ? ' queue-item done' : ' queue-item';
+    return '<div class="' + cls + '">' + st + '<span class="flex-grow-1 q-text">' + esc(x.text) + '</span>' + (x.retries ? '<span class="badge text-bg-warning">重试'+x.retries+'</span>' : '') + '</div>';
   }).join('') : '<div class="p-3 text-secondary">（空）</div>';
 
   $('accounts').innerHTML = (s.emails && s.emails.length)
