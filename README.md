@@ -6,7 +6,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/curloop.svg)](https://www.npmjs.com/package/curloop)
 [![node](https://img.shields.io/node/v/curloop.svg)](https://www.npmjs.com/package/curloop)
 [![platform](https://img.shields.io/badge/platform-Windows-0078D4.svg)](https://github.com/daetz-coder/CurLoop)
-[![license](https://img.shields.io/badge/license-UNLICENSED-lightgrey.svg)](https://github.com/daetz-coder/CurLoop)
+[![license](https://img.shields.io/npm/l/curloop.svg)](LICENSE)
 
 > **Drive the real Cursor IDE from a TypeScript harness: walk a `TODO.md` checkbox queue unattended, detect usage limits / signed-out UI, switch accounts via a login-assistant GUI, then restart and resume.** One product-grade Web console replaces hopping between CLI, logs, and the IDE.
 
@@ -188,4 +188,4 @@ Copy `unattended\run_here.bat` to a project root and double-click (`live` or `li
 
 ## License
 
-UNLICENSED (private project; redistribution without authorization is prohibited).
+[MIT](LICENSE)

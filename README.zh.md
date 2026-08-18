@@ -6,7 +6,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/curloop.svg)](https://www.npmjs.com/package/curloop)
 [![node](https://img.shields.io/node/v/curloop.svg)](https://www.npmjs.com/package/curloop)
 [![platform](https://img.shields.io/badge/platform-Windows-0078D4.svg)](https://github.com/daetz-coder/CurLoop)
-[![license](https://img.shields.io/badge/license-UNLICENSED-lightgrey.svg)](https://github.com/daetz-coder/CurLoop)
+[![license](https://img.shields.io/npm/l/curloop.svg)](LICENSE)
 
 > **用 TypeScript Harness 驱动真实 Cursor：按目标项目 `TODO.md` 复选框队列无人值守执行，检测用量限制 / 登录失效，经换号助手 GUI 自动换号，重启后续接。** 产品级 Web 控制台把 CLI、日志和 IDE 收进一个浏览器页。
 
@@ -188,4 +188,4 @@ npm link             # 全局 curloop 指向本目录
 
 ## License
 
-UNLICENSED（私有项目，未经授权禁止分发）。
+[MIT](LICENSE)

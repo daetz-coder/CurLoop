@@ -1,25 +1,30 @@
 {
   "name": "curloop",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Unattended Cursor harness (Windows, TypeScript): CDP-drive real Cursor through a TODO.md queue, auto-switch accounts on usage/login limits, product-grade Web console.",
   "keywords": [
     "cursor",
+    "cursor-ide",
     "cdp",
+    "chrome-devtools-protocol",
     "automation",
     "unattended",
+    "harness",
     "cli",
     "ai-coding",
     "agent",
     "windows",
-    "todo"
+    "typescript",
+    "todo",
+    "web-ui"
   ],
   "author": "deatz <3446914219@qq.com>",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/daetz-coder/CurLoop.git"
   },
-  "homepage": "https://github.com/daetz-coder/CurLoop",
+  "homepage": "https://www.npmjs.com/package/curloop",
   "bugs": {
     "url": "https://github.com/daetz-coder/CurLoop/issues"
   },
@@ -56,6 +61,7 @@
     "src/",
     "config.default.json",
     "README.md",
-    "README.zh.md"
+    "README.zh.md",
+    "LICENSE"
   ]
 }
