@@ -199,7 +199,7 @@ export function loginAssistantFromDict(d: Record<string, unknown>): LoginAssista
     refreshTemplate: strPath(d, 'refresh_template'),
     confirmTemplate: strPath(d, 'confirm_template'),
     confidence: num(d, 'confidence', 0.85),
-    launchWaitS: num(d, 'launch_wait_s', 8.0),
+    launchWaitS: num(d, 'launch_wait_s', 20.0),
     confirmWaitS: num(d, 'confirm_wait_s', 8.0),
     closeAfterRefresh: Boolean(d['close_after_refresh'] ?? true),
   };
@@ -239,7 +239,7 @@ export function timeoutsFromDict(d: Record<string, unknown>): Timeouts {
     completionStablePolls: Math.trunc(num(d, 'completion_stable_polls', 4)),
     completionPollIntervalS: num(d, 'completion_poll_interval_s', 3.0),
     minElapsedBeforeCompleteS: num(d, 'min_elapsed_before_complete_s', 10.0),
-    switchTokenTimeoutS: num(d, 'switch_token_timeout_s', 60.0),
+    switchTokenTimeoutS: num(d, 'switch_token_timeout_s', 45.0),
   };
 }
 
@@ -257,7 +257,7 @@ export function retryFromDict(d: Record<string, unknown>): RetryConfig {
     hangRetriesPerTask: Math.trunc(num(d, 'hang_retries_per_task', 1)),
     sendRetries: Math.trunc(num(d, 'send_retries', 2)),
     maxTotalAccountSwitchesPerRun: Math.trunc(num(d, 'max_total_account_switches_per_run', 0)),
-    cooldownBetweenSwitchesS: num(d, 'cooldown_between_switches_s', 30.0),
+    cooldownBetweenSwitchesS: num(d, 'cooldown_between_switches_s', 8.0),
     autoExtend: Boolean(d['auto_extend'] ?? false),
     autoExtendMaxIterations: Math.trunc(num(d, 'auto_extend_max_iterations', 20)),
   };

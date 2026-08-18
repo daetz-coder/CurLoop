@@ -58,21 +58,42 @@ function isOnPrimary(x: number, y: number, w: number, h: number, sw: number, sh:
   return !(x >= sw || x + w <= 0 || y >= sh || y + h <= 0);
 }
 
-async function moveToPrimaryAndForeground(hwnd: number): Promise<void> {
+async function moveToPrimaryAndForeground(hwnd: number, opts?: { force?: boolean }): Promise<void> {
+  const force = opts?.force !== false;
   await win32.showRestore(hwnd); // SW_RESTORE — 必须先还原再移动
-  await sleep(0.3);
+  if (force) await sleep(0.1);
   const rect = await win32.windowRect(hwnd);
   const { w: sw, h: sh } = await win32.screenSize();
   if (rect) {
     const [x, y, w, h] = rect;
-    if (!isOnPrimary(x, y, w, h, sw, sh)) {
-      await win32.moveWindow(hwnd, 100, 100, w, h); // SWP_SHOWWINDOW
-      await sleep(0.4);
+    // 托盘/最小化常见：移到 -25600 一类坐标，必须拉回主屏
+    const offscreen = x < -1000 || y < -1000;
+    if (offscreen || !isOnPrimary(x, y, w, h, sw, sh)) {
+      await win32.moveWindow(hwnd, 100, 100, Math.max(w, 200), Math.max(h, 200)); // SWP_SHOWWINDOW
+      if (force) await sleep(0.15);
     }
   }
   await win32.setTopmost(hwnd, true); // 防最大化/全屏终端遮挡
-  await sleep(0.5); // 置顶后等重绘
+  if (force) await sleep(0.15); // 置顶后等重绘（短等待即可）
   await win32.foreground(hwnd);
+}
+
+/** 轻量置顶：已在主屏则只 setTopmost+foreground，避免每轮模板轮询都 restore/move/sleep。 */
+async function ensureAssistantVisible(exePath: string): Promise<void> {
+  const stem = path.parse(exePath).name.toLowerCase();
+  const wins = await win32.listWindows();
+  const mine = wins.filter((w) => w.exe.toLowerCase().includes(stem));
+  if (!mine.length) return;
+  const { w: sw, h: sh } = await win32.screenSize();
+  const w0 = mine[0];
+  const [x, y, w, h] = w0.rect;
+  const offscreen = x < -1000 || y < -1000;
+  if (offscreen || !isOnPrimary(x, y, w, h, sw, sh)) {
+    await moveToPrimaryAndForeground(w0.hwnd);
+    return;
+  }
+  await win32.setTopmost(w0.hwnd, true);
+  await win32.foreground(w0.hwnd);
 }
 
 export interface TemplateLocateResult {
@@ -108,12 +129,12 @@ export async function locateTemplate(
   const deadline = Date.now() + timeoutS * 1000;
   try {
     while (Date.now() < deadline) {
-      // 多个置信度尝试（对齐 pyautogui: confidence 与 confidence-0.05 兜底）
-      for (const conf of [confidence, Math.max(0.7, confidence - 0.05)]) {
-        try {
-          if (keepFront) await keepFront(); // 截图前把助手窗口拉到最前（防全屏遮挡）
-          await win32.capturePrimary(capFile);
-          const m = locateTemplateOnPng(capFile, templateFile, 4);
+      try {
+        if (keepFront) await keepFront(); // 截图前把助手窗口拉到最前（防全屏遮挡）
+        await win32.capturePrimary(capFile);
+        // 同一帧试两档置信度，避免每档都重复 keepFront+截图
+        const m = locateTemplateOnPng(capFile, templateFile, 4);
+        for (const conf of [confidence, Math.max(0.7, confidence - 0.05)]) {
           if (m.ok && m.score !== undefined && m.score >= conf - 0.02) {
             return {
               ok: true,
@@ -124,9 +145,9 @@ export async function locateTemplate(
               score: m.score,
             };
           }
-        } catch {
-          /* capture failed — retry */
         }
+      } catch {
+        /* capture failed — retry */
       }
       await sleep(poll);
     }
@@ -151,7 +172,7 @@ async function findAssistantWindow(exePath: string, timeoutS: number): Promise<[
       if (wins.length) return [wins[0], seen];
     }
     if (!seen.length) seen = await assistantLikeTitles();
-    await sleep(2);
+    await sleep(0.4);
   }
   return [null, seen];
 }
@@ -205,7 +226,7 @@ async function restartAssistant(cfg: Config): Promise<Record<string, unknown>> {
       await moveToPrimaryAndForeground(wins[0]);
       return { ok: true, hwnd: wins[0], relaunched: true };
     }
-    await sleep(2);
+    await sleep(0.4);
   }
   return { ok: false, reason: 'window not found after relaunch' };
 }
@@ -250,7 +271,7 @@ export async function refreshAccount(cfg: Config, dryRun = false): Promise<Refre
   let up = await isRunning(exeName);
   let exitedEarly: number | null = null;
   while (!up && Date.now() < deadline) {
-    await sleep(2);
+    await sleep(0.4);
     up = await isRunning(exeName);
     if (proc && proc.exitCode !== null && exitedEarly === null) exitedEarly = proc.exitCode;
   }
@@ -303,24 +324,28 @@ export async function refreshAccount(cfg: Config, dryRun = false): Promise<Refre
   if (!dryRun) await moveToPrimaryAndForeground(hwnd);
 
   // 3. 点 刷新Cursor
-  // keepFront：每次截图前把助手窗口移回主屏 + 置顶 + 强制前台
-  // （窗口可能被最小化到托盘/移到屏幕外 -25600 坐标，或全屏浏览器遮挡——都要拉到可见前台）
+  // keepFront：首轮强制拉回主屏；之后用轻量 ensureAssistantVisible（仅离屏才 move）
+  // 窗口可能被最小化到托盘/移到屏幕外 -25600，或被全屏窗口遮挡
+  let keepFrontHeavy = true;
   const keepAssistantFront = async (): Promise<void> => {
     try {
-      const wins = await findWindowsForExe(la.exe);
-      if (!wins.length) return;
-      for (const w of wins.slice(0, 3)) await moveToPrimaryAndForeground(w);
-      await win32.foreground(wins[0]);
-      await sleep(0.25);
+      if (keepFrontHeavy) {
+        const wins = await findWindowsForExe(la.exe);
+        if (!wins.length) return;
+        await moveToPrimaryAndForeground(wins[0]);
+        keepFrontHeavy = false;
+        return;
+      }
+      await ensureAssistantVisible(la.exe);
     } catch {
       /* ignore */
     }
   };
   let refresh: TemplateLocateResult = { ok: false, reason: 'no refresh template configured' };
-  // 模板匹配等待：助手窗口创建有延迟（实测 15~23s）+ 界面渲染，用更长的稳定期
+  // 模板匹配等待：助手窗口创建有延迟（实测 15~23s）+ 界面渲染；上限保留，命中即返回
   const tplWaitS = Math.max(la.confirmWaitS, la.launchWaitS + 10);
   if (refreshTpl && fs.existsSync(refreshTpl)) {
-    refresh = await locateTemplate(refreshTpl, la.confidence, tplWaitS, 0.5, keepAssistantFront);
+    refresh = await locateTemplate(refreshTpl, la.confidence, tplWaitS, 0.35, keepAssistantFront);
     if (refresh.ok && !dryRun) {
       await win32.clickAt(refresh.center![0], refresh.center![1]);
       refresh.clicked = true;
@@ -332,7 +357,8 @@ export async function refreshAccount(cfg: Config, dryRun = false): Promise<Refre
     result.steps.push({ step: 'restart', ...rp });
     if (rp.ok && refreshTpl && fs.existsSync(refreshTpl)) {
       hwnd = rp['hwnd'] as number;
-      refresh = await locateTemplate(refreshTpl, la.confidence, tplWaitS, 0.5, keepAssistantFront);
+      keepFrontHeavy = true;
+      refresh = await locateTemplate(refreshTpl, la.confidence, tplWaitS, 0.35, keepAssistantFront);
       if (refresh.ok) {
         await win32.clickAt(refresh.center![0], refresh.center![1]);
         refresh.clicked = true;
@@ -341,19 +367,20 @@ export async function refreshAccount(cfg: Config, dryRun = false): Promise<Refre
   }
   result.steps.push({ step: 'refresh', ...refresh });
 
-  // 4. 确认框（独立顶层 QDialog）
+  // 4. 确认框（独立顶层 QDialog）——短等后立刻轮询模板，不再固定睡 1.5s
   if (!dryRun) {
-    await sleep(1.5);
+    await sleep(0.35);
     try {
       const wins = await findWindowsForExe(la.exe);
-      for (const w of wins) await win32.setTopmost(w, true);
+      if (wins.length) await win32.setTopmost(wins[0], true);
     } catch {
       /* ignore */
     }
   }
   let confirm: TemplateLocateResult = { ok: false, reason: 'no confirm template configured' };
   if (confirmTpl && fs.existsSync(confirmTpl)) {
-    confirm = await locateTemplate(confirmTpl, la.confidence, tplWaitS, 0.5, keepAssistantFront);
+    keepFrontHeavy = false; // 助手已在前台；确认框出现即可点
+    confirm = await locateTemplate(confirmTpl, la.confidence, tplWaitS, 0.35, keepAssistantFront);
     if (confirm.ok && !dryRun) {
       await win32.clickAt(confirm.center![0], confirm.center![1]);
       confirm.clicked = true;

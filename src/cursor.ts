@@ -76,7 +76,7 @@ export async function waitTokenChange(
   cfg: Config,
   oldFp: string | null,
   timeoutS: number,
-  poll = 2.0,
+  poll = 1.0,
 ): Promise<[boolean, Record<string, unknown>]> {
   const deadline = Date.now() + timeoutS * 1000;
   let last: Record<string, unknown> = {};

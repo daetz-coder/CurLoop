@@ -10,8 +10,8 @@
   },
   "login_assistant": {
     "confidence": 0.85,
-    "launch_wait_s": 25.0,
-    "confirm_wait_s": 12.0,
+    "launch_wait_s": 20.0,
+    "confirm_wait_s": 8.0,
     "close_after_refresh": true
   },
   "detection": {
@@ -60,13 +60,13 @@
     "completion_stable_polls": 12,
     "completion_poll_interval_s": 3,
     "min_elapsed_before_complete_s": 10,
-    "switch_token_timeout_s": 60
+    "switch_token_timeout_s": 45
   },
   "retry": {
     "hang_retries_per_task": 1,
     "send_retries": 2,
     "max_total_account_switches_per_run": 0,
-    "cooldown_between_switches_s": 30,
+    "cooldown_between_switches_s": 8,
     "auto_extend": true,
     "auto_extend_max_iterations": 20
   },

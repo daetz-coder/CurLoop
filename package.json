@@ -1,6 +1,6 @@
 {
   "name": "curloop",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "无人值守 Cursor 编码 Harness（Windows，TypeScript）：CDP 驱动真实 Cursor 自动执行 TODO 队列，检测用量/登录限制自动换号，带产品级 Web 界面（可视化/控制/提示词编辑/自动提权）。",
   "keywords": [
     "cursor",

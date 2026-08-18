@@ -18,7 +18,7 @@
   - `prompts.ts` — 提示词注册表（8 个可编辑模板）+ 任务执行纪律 + 仓库上下文（git/HARNESS_STATE.md）、长对话检查点、FinalGoal 最终验收；支持 `%APPDATA%\curloop\prompts\<key>.txt` 覆盖
   - `todoQueue.ts` / `runState.ts` / `observer.ts` / `ui.ts` / `fileLock.ts` — TODO 队列、断点续跑（snapshot + events.jsonl）、状态统计、ANSI 渲染、跨进程同步锁
   - `loop.ts` — 无人值守状态机（`--check-config` / `--dry-run` / `--detect-only` / `--mode live|limit-sim`）
-  - `cli.ts` — 交互 CLI + REPL（`run` / `plan` / `status` / `stats` / `watch` / `init` / `tasks` / `log` / `stop` / `report`）
+  - `cli.ts` — 交互 CLI + REPL（`run` / `plan` / `status` / `stats` / `watch` / `init` / `tasks` / `log` / `stop` / `report` / `web`）
   - `web.ts` + `web/index.html` — Web 界面（仿 dsh web）：本地 HTTP 服务器、统计/轨迹可视化、远程运行控制
 - `bin/curloop.js` — Node 入口（flag 参数 → loop 直通；子命令/空 → 交互 CLI）
 
@@ -29,7 +29,9 @@
 要求：**Windows + Node.js ≥ 22.13**（使用 `node:sqlite` 与 `Atomics.wait`）。无需 Python。
 
 ```bash
-npm install -g curloop        # 或本地开发：npm install && npm run build && npm link
+npm install -g curloop        # 当前 latest：0.3.1
+# 若本机仍是 0.1.x（Python 壳，无 web 子命令）：npm uninstall -g curloop && npm install -g curloop
+# 本地开发：npm install && npm run build && npm link
 ```
 
 ## 快速开始
@@ -45,7 +47,7 @@ curloop run --mode live --max-tasks 10 --max-switches 3   # 运行预算：最�
 用法分两种，自动识别：
 
 - **无人值守直通**：第一个参数以 `-` 开头（`--check-config` / `--dry-run` / `--detect-only` / `--mode ...` / `--max-tasks N` / `--max-switches N`）
-- **交互 CLI**：无参数进入 REPL，或子命令 `run` / `plan` / `status` / `stats` / `watch` / `init` / `tasks` / `log` / `stop` / `report`
+- **交互 CLI**：无参数进入 REPL，或子命令 `run` / `plan` / `status` / `stats` / `watch` / `init` / `tasks` / `log` / `stop` / `report` / `web`
 
 REPL 斜杠命令：`/status` `/stats` `/tasks` `/log [N]` `/run` `/plan` `/watch` `/init` `/stop` `/report` `/project <路径>` `/exit`。
 
@@ -85,7 +87,8 @@ curloop web --no-open           # 只启动服务，不打开浏览器
   `prompt.task_prompt_file` 可指定自定义任务提示词文件（`{project}` `{task}` `{retries}` 占位符）；
   `prompt.goal_in_task: true` 让任务提示词附带 FinalGoal 目标提示
 - **自动换号**：撞 limit/登出自动换号（`login_assistant`），预算 `retry.max_total_account_switches_per_run`（0=不限）；
-  CLI `--max-switches N` 可临时覆盖。
+  CLI `--max-switches N` 可临时覆盖。0.3.1 起缩短 GUI 轮询/置顶 sleep，默认冷却 `retry.cooldown_between_switches_s: 8`
+  （上限仍保留：`launch_wait_s` / `confirm_wait_s` / `switch_token_timeout_s`，命中即返回，不是睡满）。
 - **可控**：
   - `--max-tasks N` / `control.max_tasks`：单次 run 完成任务上限（到点收尾退出 0）
   - **STOP 文件**（`<projectDir>/STOP`，或 `control.stop_file` 自定义）：运行中检测到即优雅中止，
@@ -99,7 +102,7 @@ curloop web --no-open           # 只启动服务，不打开浏览器
 
 ## 配置
 
-默认配置开箱即用（Cursor / 换号助手路径未配置时会自动检测常见安装位置）。本机配置写在 `%APPDATA%\curloop\config.json`，自动合并并覆盖默认值：
+默认配置开箱即用（Cursor / 换号助手路径未配置时会自动检测常见安装位置）。本机配置写在 `%APPDATA%\curloop\config.json`，自动合并并覆盖默认值。请存 **UTF-8 无 BOM**（记事本/PowerShell `Out-File` 常会写入 BOM，旧版会跳过该文件）。
 
 ```jsonc
 {
@@ -108,8 +111,12 @@ curloop web --no-open           # 只启动服务，不打开浏览器
   "login_assistant": {
     "exe": "C:\\Users\\you\\Desktop\\CursorLoginAssistant-836.exe",
     "refresh_template": "",                      // 留空 = 用内置模板（打包自带，无需自己截图）
-    "confirm_template": ""
-  }
+    "confirm_template": "",
+    "launch_wait_s": 20,                         // 等助手窗口出现的上限（秒），窗口一出来就继续
+    "confirm_wait_s": 8
+  },
+  "timeouts": { "switch_token_timeout_s": 45 },  // 等 token 翻转上限
+  "retry": { "cooldown_between_switches_s": 8 }  // 换号成功后的冷却（固定睡满；想更快可改 5）
 }
 ```
 
@@ -134,8 +141,10 @@ curloop web --no-open           # 只启动服务，不打开浏览器
 
 1. 以 `--remote-debugging-port=9333` 启动/附加真实 Cursor（真实 `%APPDATA%\Cursor` 配置）
 2. 通过 CDP 注入 JS 检测 DOM：用量/速率限制、登录失效、回复完成状态（中英文关键词）
-3. 撞限/掉线时自动换号：PowerShell 桥截图 → 纯 TS 模板匹配「刷新Cursor → 确认」→ 等 token 翻转 → 重启续跑
-4. 每个任务完成后自动 `git commit`，队列动态吸收 Agent 追加的新任务
+3. 促销/更新弹窗：`DISMISS_JS` 只在**可见** modal 内点白名单按钮（Not now / 取消 / 关闭…），绝不点 Update/订阅；
+   `ensureReady` / `sendPrompt` 轮询关到 `modalCount==0`，等回复时每 3 轮再清一次
+4. 撞限/掉线时自动换号：PowerShell 桥截图 → 纯 TS 模板匹配「刷新Cursor → 确认」→ 等 token 翻转 → 重启续跑
+5. 每个任务完成后自动 `git commit`，队列动态吸收 Agent 追加的新任务
 
 ## 从源码开发
 
